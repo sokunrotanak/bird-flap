@@ -93,7 +93,6 @@ fn main() {
             .chain()
             .run_if(in_state(GameState::Playing)),
         )
-        // .add_observer(respawn_on_endgame)
         .add_observer(
             |_trigger: On<ScorePoint>, mut score: ResMut<Score>| {
                 score.0 +=1;
@@ -331,8 +330,8 @@ pub const CLAMP_VEL: f32 = 1000.0;
 
 fn border_patrol (
     mut bird: Query<(&mut Transform, &mut Velocity, &Gravity, &Collider), With<Player>>,
-    mut commands: Commands,
-    time: Res<Time>
+    time: Res<Time>,
+    mut game_state: ResMut<NextState<GameState>>
 ) {
     for (mut pos, mut vel, gravity, col) in &mut bird{
         // let bird_head_before = pos.translation.y + (BIRD_SIZE-PADDING);
@@ -343,7 +342,7 @@ fn border_patrol (
             pos.translation.y += vel.0 * time.delta_secs();
         }
         if pos.translation.y <= (-CANVAS_SIZE.y / 2.0) + (col.0.y /2.0) {
-            commands.trigger(EndGame);
+            game_state.set(GameState::GameOver);
         }
     }
 }
@@ -405,6 +404,7 @@ fn check_collisions(
 
     Ok(())
 }
+
 
 pub fn enter_playing (
     input: Res<ButtonInput<KeyCode>>,
