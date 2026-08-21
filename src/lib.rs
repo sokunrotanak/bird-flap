@@ -1,0 +1,155 @@
+use std::time::Duration;
+use rand::RngExt;
+use bevy::{prelude::*, time::common_conditions::on_timer};
+
+#[derive(States, Default, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GameState {
+    #[default]
+    MainMenu,
+    Playing,
+    GameOver,
+}
+
+pub struct PipePlugin;
+
+impl Plugin for PipePlugin {
+    fn build(&self, app: &mut App){
+        app.add_systems(
+            FixedUpdate,(
+            spawn_pipes
+                .run_if(on_timer(Duration::from_millis(2000)))
+                .run_if(in_state(GameState::Playing)),
+            despawn_pipes.run_if(in_state(GameState::Playing)),
+        ));
+        app.add_systems(PostUpdate, 
+            shift_pipes_to_the_left
+            .before(TransformSystems::Propagate)
+            .run_if(in_state(GameState::Playing))
+        );
+    }
+}
+
+pub const CANVAS_SIZE: Vec2 = Vec2::new(800.0, 600.0);
+pub const BIRD_CUSTOM: Vec2 = Vec2::new(128.0, 105.0);
+pub const SCALE_FACTOR: f32 = 0.5;
+pub const BIRD_SIZE: Vec2 = Vec2::new(BIRD_CUSTOM.x * SCALE_FACTOR, BIRD_CUSTOM.y * SCALE_FACTOR);
+pub const PADDING_X: f32 = 20.0;
+pub const PADDING_Y: f32 = 20.0;
+pub const COLLIDER: Vec2 = Vec2::new(BIRD_SIZE.x - PADDING_X, BIRD_SIZE.y - PADDING_Y);
+pub const PIPE_SIZE: Vec2 = Vec2::new(128.0, CANVAS_SIZE.y);
+const GAP_SIZE: f32 = 180.0;
+pub const PIPE_SPEED: f32 = 200.0;
+pub const PIPE_X_OFFSET: f32 = 64.0;
+
+
+#[derive(Component)]
+pub struct Pipe;
+
+#[derive(Component)]
+pub struct PipeTop;
+
+#[derive(Component)]
+pub struct PipeBottom;
+
+#[derive(Component)]
+pub struct PointsGate;
+
+
+
+fn spawn_pipes (
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    // time: Res<Time>,
+) {
+
+    let gap_y_position = rand::rng().random_range(-(CANVAS_SIZE.y/4.)..(CANVAS_SIZE.y/4.));
+    // (time.elapsed_secs() * 5. * 5.238924)
+    //     .sin()
+    //     *CANVAS_SIZE.y
+    //     /4.;
+    let transform = Transform::from_xyz(CANVAS_SIZE.x /2.0, 0., 1.);
+    // let gap_y_position = 0.;
+    let pipe_offset = PIPE_SIZE.y / 2.0 + GAP_SIZE / 2.0;
+    let image = asset_server.load("pipe.png");
+    let image_mode = SpriteImageMode::Sliced(
+                TextureSlicer {
+                    border: BorderRect::axes(48., 24.),
+                    center_scale_mode: SliceScaleMode::Stretch,
+                    ..default()
+                },
+            );
+
+    commands.spawn((
+        transform,
+        DespawnOnExit(GameState::GameOver),
+        Visibility::Visible,
+        Pipe,
+        children![
+            (
+                Sprite {
+                    image: image.clone(),
+                    custom_size: Some(PIPE_SIZE),
+                    image_mode: image_mode.clone(),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    0.0,
+                    pipe_offset + gap_y_position,
+                    0.0
+                ),
+                PipeTop
+            ),
+            (
+                Visibility::Hidden,
+                Sprite {
+                    color: Color::WHITE,
+                    custom_size: Some(Vec2::new(
+                        10.0, GAP_SIZE,
+                    )),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    0.0,
+                    gap_y_position,
+                    1.0
+                ),
+                PointsGate,
+            ),
+            (
+                Sprite {
+                    image: image,
+                    custom_size: Some(PIPE_SIZE),
+                    image_mode: image_mode.clone(),
+                    ..default()
+                },
+                Transform::from_xyz(
+                    0.0,
+                    -pipe_offset + gap_y_position,
+                    0.0
+                ),
+                PipeBottom
+            ),
+        ],
+    ));
+}
+
+pub fn shift_pipes_to_the_left (
+    mut pipes: Query<&mut Transform, With<Pipe>>,
+    time: Res<Time>,
+) {
+    for mut pipe in &mut pipes {
+        pipe.translation.x -= PIPE_SPEED * time.delta_secs();
+    }
+}
+
+fn despawn_pipes (
+    mut commands: Commands,
+    pipes: Query<(Entity, &Transform), With<Pipe>>,
+) {
+    for (entity, pos) in pipes.iter() {
+        if pos.translation.x < -(CANVAS_SIZE.x/2.0 + PIPE_SIZE.x) {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+

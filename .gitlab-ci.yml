@@ -1,0 +1,29 @@
+image: rust:latest
+
+# Speeds up repeat builds by caching the compiled dependencies.
+cache:
+  key: $CI_COMMIT_REF_SLUG
+  paths:
+    - .cargo/
+    - target/
+
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  TRUNK_VERSION: "0.21.14"
+
+pages:
+  stage: deploy
+  script:
+    # WASM compile target for Rust.
+    - rustup target add wasm32-unknown-unknown
+    # Grab a prebuilt Trunk binary (avoids the slow/broken source compile).
+    - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf -
+    # Build to ./public (GitLab Pages requires that folder), with URLs
+    # rewritten for the /<project-name>/ subpath GitLab serves under.
+    - ./trunk build --release --dist public --public-url "/$CI_PROJECT_NAME/"
+  artifacts:
+    paths:
+      - public
+  # Only deploy from the default branch.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
