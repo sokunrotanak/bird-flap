@@ -5,7 +5,7 @@ use bevy::math::bounding::*;
 use flappy_bird::*;
 
 #[derive(Resource, Default)]
-struct Score(u32);
+pub struct Score(pub u32);
 
 #[derive(Event)]
 pub struct ScorePoint;
@@ -142,7 +142,9 @@ pub fn startup (
 
 pub fn show_score (
     mut commands: Commands,
+    mut score: ResMut<Score>,
 ) {
+    score.0 = 0;
     commands.spawn((
         Node {
             width: percent(100.),
@@ -274,8 +276,6 @@ struct Gravity(f32);
 #[derive(Component, Default)]
 struct Velocity(f32);
 
-#[derive(Event)]
-struct EndGame;
 
 fn gravity (
     mut transform: Query <(&mut Transform, &mut Velocity, &Gravity)>,
