@@ -20,7 +20,7 @@ pages:
     - wget -qO- https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf -
     # Build to ./public (GitLab Pages requires that folder), with URLs
     # rewritten for the /<project-name>/ subpath GitLab serves under.
-    - ./trunk build --release --dist public --public-url "/$CI_PROJECT_NAME/"
+    - ./trunk build --release --dist public --public-url "/"
   artifacts:
     paths:
       - public
