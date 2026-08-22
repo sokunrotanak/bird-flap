@@ -52,6 +52,38 @@
     <link data-trunk rel="copy-dir" href="assets" />
   </head>
   <body>
+    <script>
+    (function () {
+      const OrigAudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!OrigAudioContext) return;
+    
+      const contexts = [];
+      const Patched = new Proxy(OrigAudioContext, {
+        construct(target, args) {
+          const ctx = new target(...args);
+          contexts.push(ctx);
+          return ctx;
+        }
+      });
+      window.AudioContext = Patched;
+      if (window.webkitAudioContext) window.webkitAudioContext = Patched;
+    
+      const events = ["click", "touchstart", "touchend", "pointerup", "mousedown", "keydown"];
+      function resumeAll() {
+        let allRunning = contexts.length > 0;
+        for (const ctx of contexts) {
+          if (ctx.state !== "running") {
+            ctx.resume();
+            if (ctx.state !== "running") allRunning = false;
+          }
+        }
+        if (allRunning) {
+          for (const e of events) window.removeEventListener(e, resumeAll);
+        }
+      }
+      for (const e of events) window.addEventListener(e, resumeAll);
+    })();
+    </script>
     <header class="site-header">
       <nav class="nav">
         <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode">

@@ -1,8 +1,10 @@
 use bevy::{
-    asset::AssetMetaCheck, camera::ScalingMode, color::palettes::tailwind::{RED_400, SLATE_50}, image::{ImageAddressMode, ImageLoaderSettings}, prelude::*, render::render_resource::AsBindGroup, shader::ShaderRef, sprite_render::{Material2d, Material2dPlugin},
+    asset::AssetMetaCheck, camera::ScalingMode, color::palettes::tailwind::{RED_400, SLATE_50}, image::{ImageAddressMode, ImageLoaderSettings}, prelude::{*, Color}, render::render_resource::AsBindGroup, shader::ShaderRef, sprite_render::{Material2d, Material2dPlugin},
 };
 use bevy::math::bounding::*;
+use bevy::audio::{AddAudioSource, Volume};
 use flappy_bird::*;
+use bevy::input::touch;
 
 #[derive(Resource, Default)]
 pub struct Score(pub u32);
@@ -55,9 +57,14 @@ fn main() {
         .init_state::<GameState>()
         .init_resource::<DebugSettings>()
         .init_resource::<Score>()
+        .insert_resource(GlobalVolume::new(Volume::Linear(GLOBAL_VOLUME)))
+        .add_audio_source::<EnvelopedPitch>()
+        .add_message::<PlayPitch>()
         .add_systems(Startup, (
                 setup_camera,
                 startup,
+                spawn_mute_button,
+                setup_audio,
             )
             .chain()
         )
@@ -84,16 +91,20 @@ fn main() {
                     .run_if(in_state(GameState::Playing)),
                 bird_rotation.run_if(in_state(GameState::Playing)),
                 instruction.run_if(in_state(GameState::MainMenu)),
+                mute_audio
             )
         )
         .add_systems(FixedUpdate, (
                 gravity,
                 border_patrol,
                 check_collisions,
+                play_pitch,
+                play_delayed_pitch
             )
             .chain()
             .run_if(in_state(GameState::Playing)),
         )
+        .insert_resource(AudioEnabled(true))
         .add_observer(
             |_trigger: On<ScorePoint>, mut score: ResMut<Score>| {
                 score.0 +=1;
@@ -101,6 +112,8 @@ fn main() {
         )
         .run();
 }
+
+pub const GLOBAL_VOLUME: f32 = 0.15;
 
 pub fn setup_camera(mut commands: Commands){
     commands.spawn((
@@ -256,11 +269,18 @@ pub struct Bird;
 #[derive(Component)]
 pub struct Collider(pub Vec2);
 
+#[derive(Resource)]
+struct AudioIcons {
+    on: Handle<Image>,
+    off: Handle<Image>,
+}
+
 pub const SPAWN_X: f32 = -250.0;
 pub const SPAWN_Y: f32 = 0.0;
 pub const SPAWN_Z: f32 = 0.0;
 pub const VELOCITY: f32 = 600.0;
 pub const GRAVITY: f32 = 1200.0;
+pub const SOUND_BUTTONVEC: Vec2 = Vec2::new(1134.0, 48.0);
 
 #[derive(Resource, Default)]
 pub struct DebugSettings {
@@ -319,10 +339,17 @@ fn bird_rotation (
 
 fn control (
     mut velocity: Single<&mut Velocity, With<Player>>,
-    buttons: Res<ButtonInput<KeyCode>>
+    buttons: Res<ButtonInput<KeyCode>>,
+    touches: Res<Touches>,
 ) {
     if buttons.just_pressed(KeyCode::Space){
         velocity.0 = VELOCITY;
+    }
+    for touch in touches.iter_just_pressed() {
+        if touch.position() != SOUND_BUTTONVEC {
+            velocity.0 = VELOCITY;
+        }
+        
     }
 }
 
@@ -335,8 +362,7 @@ fn border_patrol (
     mut game_state: ResMut<NextState<GameState>>
 ) {
     for (mut pos, mut vel, gravity, col) in &mut bird{
-        // let bird_head_before = pos.translation.y + (BIRD_SIZE-PADDING);
-        if pos.translation.y > CANVAS_SIZE.y / 2.0 - col.0.y /2.0 { //|| pos.translation.y < (CANVAS_SIZE.y / 2.0) + (BIRD_SIZE+PADDING) {
+        if pos.translation.y > CANVAS_SIZE.y / 2.0 - col.0.y /2.0 { 
             pos.translation.y = CANVAS_SIZE.y / 2.0 - col.0.y /2.0;
             vel.0 -= gravity.0 * time.delta_secs();
             vel.0 = vel.0.clamp(-CLAMP_VEL, CLAMP_VEL);
@@ -357,6 +383,7 @@ fn check_collisions(
     >,
     pipe_gaps: Query<(&Sprite, Entity), With<PointsGate>>,
     transform_helper: TransformHelper,
+    mut play_pitch_writer: MessageWriter<PlayPitch>,
     mut game_state: ResMut<NextState<GameState>>
 ) -> Result<()> {
     let bird_transform = transform_helper
@@ -400,6 +427,7 @@ fn check_collisions(
         if bird_collider.intersects(&gap_collider) {
             commands.trigger(ScorePoint);
             commands.entity(entity).despawn();
+            play_pitch_writer.write(PlayPitch);
         }
     }
 
@@ -410,9 +438,15 @@ fn check_collisions(
 pub fn enter_playing (
     input: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<GameState>>,
+    touches: Res<Touches>,
 ) {
     if input.just_pressed(KeyCode::Space) {
         game_state.set(GameState::Playing);
+    }
+    for touch in touches.iter_just_pressed() {
+        if touch.position() != SOUND_BUTTONVEC {
+            game_state.set(GameState::Playing);
+        }
     }
 }
 
@@ -488,4 +522,60 @@ fn game_over (
         ]
             
         ));
+}
+
+fn spawn_mute_button (
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+) {
+    let icons = AudioIcons {
+        on: asset_server.load("icons/sound_on.png"),
+        off: asset_server.load("icons/sound_off.png"),
+    };
+    commands.spawn((
+        Button,
+        AudioToggleButton,
+        Node {
+            position_type: PositionType::Absolute, // take it out of layout flow
+            top: Val::Px(12.0),
+            right: Val::Px(12.0),                  // pin to top-right
+            width: Val::Px(48.0),
+            height: Val::Px(48.0),
+            // border: UiRect::all(Val::Px(2.0)),
+            // justify_content: JustifyContent::Center,
+            // align_items: AlignItems::Center,
+            ..default()
+        },
+        ImageNode::new(icons.on.clone()),
+    ));
+    commands.insert_resource(icons);
+}
+
+fn mute_audio(
+    mut interaction: Query<
+        (&Interaction, &mut ImageNode, &ComputedNode, &UiGlobalTransform),
+        (Changed<Interaction>, With<AudioToggleButton>),
+    >,
+    mut audio_enabled: ResMut<AudioEnabled>,
+    mut global: ResMut<GlobalVolume>,
+    icons: Res<AudioIcons>,
+    touches: Res<Touches>,
+) {
+    for (interact, mut image, _, &global_pos) in &mut interaction {
+        if *interact == Interaction::Pressed {
+            audio_enabled.0 = !audio_enabled.0;
+            global.volume = if audio_enabled.0 {
+                Volume::Linear(GLOBAL_VOLUME)
+            } else {
+                Volume::SILENT
+            };
+            image.image = if audio_enabled.0 { icons.on.clone() } else { icons.off.clone() };
+        }
+
+        for touch in touches.iter_just_pressed() {
+            if touch.position() == global_pos.translation {
+                audio_enabled.0 = !audio_enabled.0;
+            }
+        }
+    }
 }
