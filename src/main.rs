@@ -32,6 +32,7 @@ fn main() {
         .add_plugins(DefaultPlugins
             .set(WindowPlugin {
                 primary_window: Some(Window {
+                    canvas: Some("#bevy".into()), 
                     title: "bird flap".into(),
                     resolution: (800, 600).into(),
                     ..default()
@@ -258,8 +259,8 @@ pub struct Collider(pub Vec2);
 pub const SPAWN_X: f32 = -250.0;
 pub const SPAWN_Y: f32 = 0.0;
 pub const SPAWN_Z: f32 = 0.0;
-pub const VELOCITY: f32 = 500.0;
-pub const GRAVITY: f32 = 900.0;
+pub const VELOCITY: f32 = 600.0;
+pub const GRAVITY: f32 = 1200.0;
 
 #[derive(Resource, Default)]
 pub struct DebugSettings {
@@ -325,7 +326,7 @@ fn control (
     }
 }
 
-pub const CLAMP_VEL: f32 = 1000.0;
+pub const CLAMP_VEL: f32 = 2000.0;
 
 
 fn border_patrol (
@@ -337,7 +338,7 @@ fn border_patrol (
         // let bird_head_before = pos.translation.y + (BIRD_SIZE-PADDING);
         if pos.translation.y > CANVAS_SIZE.y / 2.0 - col.0.y /2.0 { //|| pos.translation.y < (CANVAS_SIZE.y / 2.0) + (BIRD_SIZE+PADDING) {
             pos.translation.y = CANVAS_SIZE.y / 2.0 - col.0.y /2.0;
-            vel.0 -= gravity.0 *2.0 * time.delta_secs();
+            vel.0 -= gravity.0 * time.delta_secs();
             vel.0 = vel.0.clamp(-CLAMP_VEL, CLAMP_VEL);
             pos.translation.y += vel.0 * time.delta_secs();
         }
