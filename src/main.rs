@@ -4,7 +4,7 @@ use bevy::{
 use bevy::math::bounding::*;
 use bevy::audio::{AddAudioSource, Volume};
 use flappy_bird::*;
-use bevy::input::touch;
+
 
 #[derive(Resource, Default)]
 pub struct Score(pub u32);
@@ -368,7 +368,7 @@ fn border_patrol (
             vel.0 = vel.0.clamp(-CLAMP_VEL, CLAMP_VEL);
             pos.translation.y += vel.0 * time.delta_secs();
         }
-        if pos.translation.y <= (-CANVAS_SIZE.y / 2.0) + (col.0.y /2.0) {
+        if pos.translation.y <= (-CANVAS_SIZE.y / 2.0) - (col.0.y *1.5) {
             game_state.set(GameState::GameOver);
         }
     }
