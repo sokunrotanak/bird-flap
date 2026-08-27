@@ -1,6 +1,8 @@
 use rand::RngExt;
-use bevy::{prelude::*, time::common_conditions::on_timer};
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    time::common_conditions::on_timer
+};
 use std::time::Duration;
 use crate::world::*;
 
@@ -34,8 +36,6 @@ pub struct PipeBottom;
 
 #[derive(Component)]
 pub struct PointsGate;
-
-
 
 fn spawn_pipes (
     mut commands: Commands,

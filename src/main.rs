@@ -36,6 +36,7 @@ fn main() {
                 ..default()
             }),
         )
+        .add_plugins(WorldPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(MenuPlugin)
         .add_plugins((
@@ -43,7 +44,6 @@ fn main() {
             Material2dPlugin::<BackgroundMaterial>::default(),
         ))
         .add_plugins(PointAudioPlugin)
-        .add_plugins(WorldPlugin)
         // .init_resource::<DebugSettings>()
         .run();
 }

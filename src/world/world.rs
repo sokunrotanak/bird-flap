@@ -1,11 +1,15 @@
 use bevy::{
     render::render_resource::AsBindGroup,
     prelude::*,
-    color::palettes::tailwind::{RED_400, SLATE_50},
+    color::palettes::tailwind::SLATE_50,
     shader::ShaderRef,
     sprite_render::Material2d,
     image::{ImageAddressMode, ImageLoaderSettings},
+    camera::{ScalingMode,Viewport},
+    window::WindowResized,
 };
+
+use crate::world::menu::*;
 
 pub struct WorldPlugin;
 
@@ -20,11 +24,11 @@ impl Plugin for WorldPlugin {
             show_score,
         ));
         app.add_systems(Update, (
+                fit_camera_viewport,
                 score_update
                     .run_if(resource_changed::<Score>)
                     .run_if(in_state(GameState::Playing)),
-                enter_playing
-                    .run_if(check_state),
+                enter_playing,
         ));
         app.add_systems(
             OnEnter(GameState::GameOver),
@@ -79,10 +83,45 @@ pub struct ScorePoint;
 #[derive(Component)]
 pub struct ScoreText;
 
+const TARGET_WIDTH: f32 = 800.0;
+const TARGET_HEIGHT: f32 = 600.0;
+
 pub fn setup_camera(mut commands: Commands){
     commands.spawn((
         Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: ScalingMode::Fixed {
+                width: TARGET_WIDTH,
+                height: TARGET_HEIGHT,
+            },
+            ..OrthographicProjection::default_2d()
+        }),
     ));
+}
+
+fn fit_camera_viewport(
+    mut resize_event: MessageReader<WindowResized>,
+    windows: Query<&Window>,
+    mut cameras: Query<&mut Camera>,
+) {
+    for event in resize_event.read() {
+        let Ok(window) = windows.get(event.window) else {continue};
+        let Ok(mut camera) = cameras.single_mut() else {continue};
+        
+        let window_size = window.physical_size().as_vec2();
+
+        let target = Vec2::new(TARGET_WIDTH, TARGET_HEIGHT) * window.scale_factor();
+
+        let viewport_size = target.min(window_size);
+        let position = ((window_size - viewport_size) / 2.0).max(Vec2::ZERO);
+
+        camera.viewport = Some(Viewport {
+            physical_position: position.as_uvec2(),
+            physical_size: viewport_size.as_uvec2(),
+            ..default()
+        });
+        
+    }
 }
 
 pub fn show_score (
@@ -163,104 +202,219 @@ pub fn background (
 pub fn enter_playing (
     input: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<GameState>>,
+    state: Res<State<GameState>>,
     touches: Res<Touches>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
+    if input.just_pressed(KeyCode::Space) && *state.get() == GameState::GameOver {
         game_state.set(GameState::Playing);
     }
-    for touch in touches.iter_just_pressed() {
-        if touch.position() != SOUND_BUTTONVEC {
+    for touch in touches.iter_just_pressed()  {
+        if touch.position() != SOUND_BUTTONVEC && *state.get() == GameState::GameOver {
             game_state.set(GameState::Playing);
         }
     }
 }
-
-pub fn check_state (
-    state: Res<State<GameState>>
-) -> bool {
-    *state.get() == GameState::MainMenu || *state.get() == GameState::GameOver
-}
-
 
 pub fn game_over (
     mut commands: Commands,
     score: Res<Score>,
 ) {
     let final_score = format!("Your final score is {}", score.0.to_string());
-
-    commands.spawn(
+    let pad_px = 20.;
+    let button_text_style = (
+        TextFont {
+            font_size: FontSize::Px(13.0),
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+    );
+    let button_node = Node {
+        width: px(150),
+        height: px(40),
+        margin: UiRect::all(px(10)),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border_radius: BorderRadius::new(
+            Val::Px(10.),
+            Val::Px(10.),
+            Val::Px(10.),
+            Val::Px(10.)
+        ),
+        ..default()
+    };
+    commands
+        .spawn(
             (
-        DespawnOnExit(GameState::GameOver),
+        
         Node {
             width: percent(100),
             height: percent(100),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            row_gap: px(30),
+            row_gap: px(20),
             ..default() 
         },
-        BackgroundColor(Color::srgba(0.7, 0.7, 0.7, 0.8)),
-        children![
-            (
-                Text::new("Game Over"),
-                TextFont { 
-                    font_size: Val::Px(80.0).into(),
-                    ..default()},
-                TextColor(Color::srgb(1.0, 0.84, 0.0)),
-
-            ),
-            (
-                Text::new(final_score),
-                TextFont { 
-                    font_size: Val::Px(40.).into(), 
-                    ..default() },
-                TextColor(SLATE_50.into()),
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: px(10),
-                    ..default()
-                },
-                children![
-                    (
-                        Text::new("Press"),
+        DespawnOnExit(GameState::GameOver),
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Node {
+                        width: percent(100),
+                        height: percent(100),
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        row_gap: px(20),
+                        padding: UiRect::new(
+                            auto(),
+                            auto(),
+                            Val::Px(180.),
+                            auto(),
+                        ),
+                        ..default()
+                    },
+                    BackgroundColor(Color::srgba(0.7, 0.7, 0.7, 0.7)),
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Text::new("Game Over"),
+                        TextFont { 
+                            font_size: Val::Px(80.0).into(),
+                            ..default()},
+                        TextColor(Color::srgb(1.0, 0.84, 0.0)),
+                    ));
+                    parent.spawn((
+                        Text::new(final_score),
                         TextFont { 
                             font_size: Val::Px(40.).into(), 
-                            ..default()},
+                            ..default() },
                         TextColor(SLATE_50.into()),
-                    ),
-                    (
-                        Node {
-                            width: px(150),
-                            height: px(65),
-                            border: UiRect::all(px(5)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::new(Val::Px(10.),Val::Px(10.),Val::Px(10.),Val::Px(10.)),
-                            ..default()
-                        },
-                        BorderColor::all(Color::WHITE),
-                        BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-                        children![(
-                            Text::new("SPACE"),
-                            TextFont { 
-                                font_size: Val::Px(40.).into(), 
-                                ..default()},
-                            TextColor(SLATE_50.into()),
-                        )],
-                    ),
-                    (
-                        Text::new("to restart!"),
-                        TextFont {font_size: Val::Px(40.).into(),
-                            ..default()},
-                        TextColor(SLATE_50.into()),
-                    )
-                ],
-            )
-        ]
+                    ));
+                })
+                .with_children(|parent| {
+                    parent
+                        .spawn(
+                            Node {
+                                width: percent(100),
+                                height: percent(100),
+                                padding: UiRect::new( 
+                                    Val::Px(200.),
+                                    Val::Px(200.), 
+                                    Val::Px(0.), 
+                                    auto(),//Val::Px(20.), 
+                                ),
+                                justify_content: JustifyContent::SpaceAround,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            }
+                        )
+                        .with_children(|parent| {
+                            parent.spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::BackToMainMenu,
+                                children![
+                                    (Text::new("Back To Main Menu"), button_text_style.clone())
+                                ]
+                            ));
+                            parent.spawn((
+                                Button,
+                                button_node,
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Play,
+                                children![
+                                    (Text::new("Restart"), button_text_style)
+                                ]
+                            ));
+                        })
+                    ;
+                })
+                ;
+
+        });
+        // children![
+        //     (
+        //         Text::new("Game Over"),
+        //         TextFont { 
+        //             font_size: Val::Px(80.0).into(),
+        //             ..default()},
+        //         TextColor(Color::srgb(1.0, 0.84, 0.0)),
+
+        //     ),
+        //     (
+                // Text::new(final_score),
+                // TextFont { 
+                //     font_size: Val::Px(40.).into(), 
+                //     ..default() },
+                // TextColor(SLATE_50.into()),
+        //     ),
+
+            // (
+            //     Button,
+            //     button_node.clone(),
+            //     BackgroundColor(NORMAL_BUTTON),
+            //     MenuButtonAction::BackToMainMenu,
+            //     children![
+            //         (Text::new("Back To Main Menu"), button_text_style.clone())
+            //     ]
+            // ),
+            // (
+            //     Button,
+            //     button_node,
+            //     BackgroundColor(NORMAL_BUTTON),
+            //     MenuButtonAction::BackToMainMenu,
+            //     children![
+            //         (Text::new("Restart"), button_text_style)
+            //     ]
+            // ),
+
+//----
+            // (
+            //     Node {
+            //         flex_direction: FlexDirection::Row,
+            //         align_items: AlignItems::Center,
+            //         column_gap: px(10),
+            //         ..default()
+            //     },
+            //     children![
+            //         (
+            //             Text::new("Press"),
+            //             TextFont { 
+            //                 font_size: Val::Px(40.).into(), 
+            //                 ..default()},
+            //             TextColor(SLATE_50.into()),
+            //         ),
+            //         (
+            //             Node {
+            //                 width: px(150),
+            //                 height: px(65),
+            //                 border: UiRect::all(px(5)),
+            //                 justify_content: JustifyContent::Center,
+            //                 align_items: AlignItems::Center,
+            //                 border_radius: BorderRadius::new(Val::Px(10.),Val::Px(10.),Val::Px(10.),Val::Px(10.)),
+            //                 ..default()
+            //             },
+            //             BorderColor::all(Color::WHITE),
+            //             BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
+            //             children![(
+            //                 Text::new("SPACE"),
+            //                 TextFont { 
+            //                     font_size: Val::Px(40.).into(), 
+            //                     ..default()},
+            //                 TextColor(SLATE_50.into()),
+            //             )],
+            //         ),
+            //         (
+            //             Text::new("to restart!"),
+            //             TextFont {font_size: Val::Px(40.).into(),
+            //                 ..default()},
+            //             TextColor(SLATE_50.into()),
+            //         )
+            //     ],
+            // )
+        //]
             
-        ));
 }

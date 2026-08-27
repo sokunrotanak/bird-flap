@@ -5,7 +5,7 @@ use std::num::*;
 use bevy::audio::Source;
 use crate::world::*;
 
-pub const GLOBAL_VOLUME: f32 = 0.08;
+pub const GLOBAL_VOLUME: f32 = 0.4;
 
 pub struct PointAudioPlugin;
 
@@ -14,16 +14,18 @@ impl Plugin for PointAudioPlugin {
         app.add_message::<PlayPitch>();
         app.add_systems(Startup, (
             setup_audio,
-            spawn_mute_button,
+            // spawn_mute_button.run_if(in_state(GameState::Playing)),
         ));
+        app.add_systems(OnEnter(GameState::Playing), spawn_mute_button);
         app.add_systems(Update, (
             play_pitch, 
             play_delayed_pitch.after(play_pitch),
-            mute_audio,
+            mute_audio.run_if(in_state(GameState::Playing)),
         ));
         app.insert_resource(AudioEnabled(true));
         app.add_audio_source::<EnvelopedPitch>();
-        app.insert_resource(GlobalVolume::new(Volume::Linear(GLOBAL_VOLUME)));
+        // app.insert_resource(Volume(2));
+        app.insert_resource(GlobalVolume::new(Volume::Linear(0.4 * GLOBAL_VOLUME)));
     }
 }
 
@@ -46,9 +48,6 @@ pub struct AudioEnabled(pub bool);
 
 #[derive(Component)]
 pub struct AudioToggleButton;
-
-#[derive(Component)]
-pub struct AudioButtonLabel;
 
 #[derive(Message, Default)]
 pub struct PlayPitch;
@@ -168,6 +167,7 @@ pub struct AudioIcons {
 pub fn spawn_mute_button (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    global_volume: Res<GlobalVolume>,
 ) {
     let icons = AudioIcons {
         on: asset_server.load("icons/sound_on.png"),
@@ -175,7 +175,9 @@ pub fn spawn_mute_button (
     };
     commands.spawn((
         Button,
+        VolumeSetting(global_volume.volume),
         AudioToggleButton,
+        DespawnOnExit(GameState::Playing),
         Node {
             position_type: PositionType::Absolute, // take it out of layout flow
             top: Val::Px(12.0),
@@ -188,25 +190,26 @@ pub fn spawn_mute_button (
             ..default()
         },
         ImageNode::new(icons.on.clone()),
+        BackgroundColor(Color::NONE),
     ));
     commands.insert_resource(icons);
 }
 
 pub fn mute_audio(
     mut interaction: Query<
-        (&Interaction, &mut ImageNode, &ComputedNode, &UiGlobalTransform),
+        (&Interaction, &mut ImageNode, &ComputedNode, &VolumeSetting, &UiGlobalTransform),
         (Changed<Interaction>, With<AudioToggleButton>),
     >,
     mut audio_enabled: ResMut<AudioEnabled>,
-    mut global: ResMut<GlobalVolume>,
+    mut global_volume: ResMut<GlobalVolume>,
     icons: Res<AudioIcons>,
     touches: Res<Touches>,
 ) {
-    for (interact, mut image, _, &global_pos) in &mut interaction {
+    for (interact, mut image, _, volume_setting, &global_pos) in &mut interaction {
         if *interact == Interaction::Pressed {
             audio_enabled.0 = !audio_enabled.0;
-            global.volume = if audio_enabled.0 {
-                Volume::Linear(GLOBAL_VOLUME)
+            global_volume.volume = if audio_enabled.0 {
+                volume_setting.0
             } else {
                 Volume::SILENT
             };
