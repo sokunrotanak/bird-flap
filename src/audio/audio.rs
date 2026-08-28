@@ -14,11 +14,11 @@ impl Plugin for PointAudioPlugin {
             setup_audio,
             // spawn_mute_button.run_if(in_state(GameState::Playing)),
         ));
-        app.add_systems(OnEnter(GameState::Playing), spawn_mute_button);
+        app.add_systems(OnEnter(GameState::Pending), spawn_mute_button);
         app.add_systems(Update, (
             play_pitch, 
             play_delayed_pitch.after(play_pitch),
-            mute_audio.run_if(in_state(GameState::Playing)),
+            mute_audio.run_if(check_pending_playing),
         ));
         app.insert_resource(AudioEnabled(true));
         app.insert_resource(GlobalVolume::new(Volume::Linear(0.4 * GLOBAL_VOLUME)));
@@ -42,6 +42,12 @@ pub struct PitchFrequency2(f32);
 
 #[derive(Component)]
 pub struct PendingPitch(Timer);
+
+pub fn check_pending_playing (
+    state: Res<State<GameState>>
+) -> bool {
+    *state.get() == GameState::Pending || *state.get() == GameState::Playing
+}
 
 pub fn setup_audio(mut commands: Commands) {
     commands.insert_resource(PitchFrequency(1000.0));

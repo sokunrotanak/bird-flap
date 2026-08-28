@@ -29,7 +29,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Pending), spawn_birdy);
         app.add_systems(Update, (
-            control.run_if(check_state),
+            control.run_if(check_pending_playing),
             bird_rotation.run_if(in_state(GameState::Playing)),
             render_gizmos.run_if(in_state(GameState::Playing)),
         ));
@@ -42,12 +42,11 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-pub fn check_state (
+pub fn check_pending_playing (
     state: Res<State<GameState>>
 ) -> bool {
     *state.get() == GameState::Pending || *state.get() == GameState::Playing
 }
-
 
 pub fn gravity (
     mut transform: Query <(&mut Transform, &mut Velocity, &Gravity)>,
