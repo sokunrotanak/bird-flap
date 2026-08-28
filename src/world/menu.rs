@@ -2,7 +2,7 @@ use bevy::{
     app::AppExit,
     audio::Volume,
     color::palettes::{css::*, tailwind::SLATE_50},
-   ecs::component::Mutable, 
+    //ecs::component::Mutable, 
     prelude::*,
 //    ui_widgets::MenuButton,
 };
@@ -55,7 +55,7 @@ pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 pub const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
 pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
-pub const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+pub const TEXT_COLOR: Color = Color::Srgba(SLATE_50);
 pub const TRANSPARENT_BACKGROUND: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
 
 #[derive(Component)]
@@ -64,6 +64,12 @@ pub enum MenuButtonAction {
     SettingsSound,
     BackToMainMenu,
     Quit,
+}
+
+#[derive(Component)]
+pub enum GameMode {
+    Adventure,
+    Endless,
 }
 
 pub fn button_system (
@@ -104,13 +110,11 @@ pub fn sound_setting_button (
     }
 }
 
-
-
 pub fn menu_setup (mut menu_state: ResMut<NextState<MenuState>>) {
     menu_state.set(MenuState::Main);
 }
 
-pub fn main_menu_setup (mut commands: Commands, asset_server: Res<AssetServer>) {
+pub fn main_menu_setup (mut commands: Commands) {
     let button_node = Node {
         width: px(300),
         height: px(65),
@@ -125,19 +129,11 @@ pub fn main_menu_setup (mut commands: Commands, asset_server: Res<AssetServer>) 
         ),
         ..default()
     };
-    // let button_icon_node = Node {
-    //     width: px(30),
-    //     position_type: PositionType::Absolute,
-    //     left: px(10),
-    //     ..default()
-    // };
+
     let button_text_font = TextFont {
         font_size: FontSize::Px(20.0),
         ..default()
     };
-    // let right_icon = asset_server.load("icons/right.png");
-    // let sound_icon = asset_server.load("icons/sound_on.png");
-    // let exit_icon = asset_server.load("icons/exitRight.png");
 
     commands.spawn((
         DespawnOnExit(MenuState::Main),
@@ -159,18 +155,18 @@ pub fn main_menu_setup (mut commands: Commands, asset_server: Res<AssetServer>) 
             children![
                 // Display the game name
                 (
+                    Node {
+                        margin: UiRect::all(px(20)),
+                        ..default()
+                    },
                     Text::new("Bird Flap"),
                     TextFont {
-                        font_size: FontSize::Px(67.0),
+                        font_size: FontSize::Px(60.0),
                         ..default()
                     },
                     TextColor(Color::from(YELLOW)),
-                    Node {
-                        margin: UiRect::all(px(50)),
-                        ..default()
-                    },
+
                 ),
-                // Display three buttons for each action available
                 (
                     Button,
                     button_node.clone(),
@@ -305,7 +301,7 @@ pub fn menu_action(
                     app_exit_writer.write(AppExit::Success);
                 }
                 MenuButtonAction::Play => {
-                    game_state.set(GameState::Playing);
+                    game_state.set(GameState::Pending);
                     menu_state.set(MenuState::Disabled);
                 }
                 MenuButtonAction::SettingsSound => {
@@ -319,79 +315,3 @@ pub fn menu_action(
         }
     }
 }
-
-// pub fn instruction (
-//     mut commands: Commands,
-// ) {
-//     commands.spawn((
-//         Visibility::Visible,
-//         instruction_text(),
-//         DespawnOnExit(GameState::MainMenu)
-//     ));
-// }
-
-// fn instruction_text () -> impl Bundle {
-//     (
-//         Node {
-//             width: percent(100),
-//             height: percent(100),
-//             align_items: AlignItems::Center,
-//             justify_content: JustifyContent::Center,
-//             ..default() 
-//         },
-//         children![(
-//             Node {
-//                 width: percent(100),
-//                 height: px(100),
-//                 border: UiRect::all(px(5)),
-//                 // horizontally center child text
-//                 justify_content: JustifyContent::Center,
-//                 // vertically center child text
-//                 align_items: AlignItems::Center,
-//                 border_radius: BorderRadius::MAX,
-//                 ..default()
-//             },
-//             children![
-//                 (
-//                     Text::new("Press "),
-//                     TextFont {
-//                         font_size: Val::Px(40.).into(),
-//                         ..default()
-//                     },
-//                     TextColor(SLATE_50.into()),
-//                 ),
-//                 (
-//                     Node {
-//                         width: px(200),
-//                         height: px(65),
-//                         border: UiRect::all(px(5)),
-//                         // horizontally center child text
-//                         justify_content: JustifyContent::Center,
-//                         // vertically center child text
-//                         align_items: AlignItems::Center,
-//                         border_radius: BorderRadius::new(Val::Px(10.),Val::Px(10.),Val::Px(10.),Val::Px(10.)),
-//                         ..default()
-//                     },
-//                     BorderColor::all(Color::WHITE),
-//                     BackgroundColor(Color::srgb(0.5,0.5,0.5)),
-//                     children![(
-//                         Text::new("SPACE"),
-//                         TextFont {
-//                             font_size: Val::Px(30.).into(),
-//                             ..default()
-//                         },
-//                         TextColor(SLATE_50.into()),
-//                     )]
-//                 ),
-//                 (
-//                     Text::new(" to Start."),
-//                     TextFont {
-//                         font_size: Val::Px(40.).into(),
-//                         ..default()
-//                     },
-//                     TextColor(SLATE_50.into()),
-//                 )
-//             ]
-//         )]
-//     )
-// }

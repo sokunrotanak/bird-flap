@@ -27,9 +27,9 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), spawn_birdy);
+        app.add_systems(OnEnter(GameState::Pending), spawn_birdy);
         app.add_systems(Update, (
-            control.run_if(in_state(GameState::Playing)),
+            control.run_if(check_state),
             bird_rotation.run_if(in_state(GameState::Playing)),
             render_gizmos.run_if(in_state(GameState::Playing)),
         ));
@@ -40,6 +40,12 @@ impl Plugin for PlayerPlugin {
         ).chain().run_if(in_state(GameState::Playing))
         );
     }
+}
+
+pub fn check_state (
+    state: Res<State<GameState>>
+) -> bool {
+    *state.get() == GameState::Pending || *state.get() == GameState::Playing
 }
 
 
@@ -63,7 +69,7 @@ pub fn spawn_birdy (
             custom_size: Some(BIRD_SIZE),
             ..default()
         },
-        Transform::from_xyz(SPAWN_X,SPAWN_Y, SPAWN_Z),
+        Transform::from_xyz(SPAWN_X,SPAWN_Y, SPAWN_Z+1.),
         Collider(COLLIDER),
         Player,
         DespawnOnExit(GameState::GameOver)
@@ -84,17 +90,26 @@ pub fn bird_rotation (
 
 pub fn control (
     mut velocity: Single<&mut Velocity, With<Player>>,
+    mut game_state: ResMut<NextState<GameState>>,
     buttons: Res<ButtonInput<KeyCode>>,
+    state: Res<State<GameState>>,
     touches: Res<Touches>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
 ) {
-    if buttons.just_pressed(KeyCode::Space){
+    
+    if buttons.just_pressed(KeyCode::Space) || mouse_input.just_pressed(MouseButton::Left){
         velocity.0 = VELOCITY;
+        if *state.get() == GameState::Pending {
+            game_state.set(GameState::Playing)
+        }
     }
     for touch in touches.iter_just_pressed() {
         if touch.position() != SOUND_BUTTONVEC {
             velocity.0 = VELOCITY;
         }
-        
+        if *state.get() == GameState::Pending {
+            game_state.set(GameState::Playing)
+        }
     }
 }
 

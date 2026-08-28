@@ -20,15 +20,18 @@ impl Plugin for WorldPlugin {
             background,
         ).chain()
         );
-        app.add_systems(OnEnter(GameState::Playing), (
+        app.add_systems(OnEnter(GameState::Pending), (
             show_score,
+            spawn_birdy_start_point,
         ));
         app.add_systems(Update, (
                 fit_camera_viewport,
                 score_update
                     .run_if(resource_changed::<Score>)
                     .run_if(in_state(GameState::Playing)),
-                enter_playing,
+                enter_pending,
+                despawn_birdy_start_point.run_if(in_state(GameState::Playing)),
+                shift_branch_to_the_left.run_if(in_state(GameState::Playing)),
         ));
         app.add_systems(
             OnEnter(GameState::GameOver),
@@ -70,6 +73,7 @@ pub const SOUND_BUTTONVEC: Vec2 = Vec2::new(1134.0, 48.0);
 pub enum GameState {
     #[default]
     MainMenu,
+    Pending,
     Playing,
     GameOver,
 }
@@ -82,6 +86,9 @@ pub struct ScorePoint;
 
 #[derive(Component)]
 pub struct ScoreText;
+
+#[derive(Component)]
+pub struct SpawnBranch;
 
 const TARGET_WIDTH: f32 = 800.0;
 const TARGET_HEIGHT: f32 = 600.0;
@@ -198,19 +205,52 @@ pub fn background (
         ));
 }
 
+pub fn spawn_birdy_start_point (
+    mut commands: Commands,
+    asset_server: Res<AssetServer>
+) {
+    commands.spawn((
+        Sprite {
+            image: asset_server.load("spawn-point.png"),
+            ..default()
+        },
+        Transform::from_xyz(SPAWN_X-50.,SPAWN_Y-30., SPAWN_Z),
+        SpawnBranch,
+    ));
+}
 
-pub fn enter_playing (
+fn despawn_birdy_start_point (
+    mut commands: Commands,
+    branch: Query<(Entity, &Transform), With<SpawnBranch>>,
+) {
+    for (entity, pos) in branch.iter() {
+        if pos.translation.x < -(CANVAS_SIZE.x/2.0 + PIPE_SIZE.x) {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+pub fn shift_branch_to_the_left (
+    mut branch: Query<&mut Transform, With<SpawnBranch>>,
+    time: Res<Time>,
+) {
+    for mut branch in &mut branch {
+        branch.translation.x -= PIPE_SPEED * time.delta_secs();
+    }
+}
+
+pub fn enter_pending (
     input: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<GameState>>,
     state: Res<State<GameState>>,
     touches: Res<Touches>,
 ) {
     if input.just_pressed(KeyCode::Space) && *state.get() == GameState::GameOver {
-        game_state.set(GameState::Playing);
+        game_state.set(GameState::Pending);
     }
     for touch in touches.iter_just_pressed()  {
         if touch.position() != SOUND_BUTTONVEC && *state.get() == GameState::GameOver {
-            game_state.set(GameState::Playing);
+            game_state.set(GameState::Pending);
         }
     }
 }
@@ -220,7 +260,6 @@ pub fn game_over (
     score: Res<Score>,
 ) {
     let final_score = format!("Your final score is {}", score.0.to_string());
-    let pad_px = 20.;
     let button_text_style = (
         TextFont {
             font_size: FontSize::Px(13.0),
@@ -243,9 +282,7 @@ pub fn game_over (
         ..default()
     };
     commands
-        .spawn(
-            (
-        
+        .spawn((
         Node {
             width: percent(100),
             height: percent(100),
@@ -317,7 +354,7 @@ pub fn game_over (
                                 BackgroundColor(NORMAL_BUTTON),
                                 MenuButtonAction::BackToMainMenu,
                                 children![
-                                    (Text::new("Back To Main Menu"), button_text_style.clone())
+                                    (Text::new("Main Menu"), button_text_style.clone())
                                 ]
                             ));
                             parent.spawn((
@@ -329,92 +366,7 @@ pub fn game_over (
                                     (Text::new("Restart"), button_text_style)
                                 ]
                             ));
-                        })
-                    ;
-                })
-                ;
-
+                        });
+                });
         });
-        // children![
-        //     (
-        //         Text::new("Game Over"),
-        //         TextFont { 
-        //             font_size: Val::Px(80.0).into(),
-        //             ..default()},
-        //         TextColor(Color::srgb(1.0, 0.84, 0.0)),
-
-        //     ),
-        //     (
-                // Text::new(final_score),
-                // TextFont { 
-                //     font_size: Val::Px(40.).into(), 
-                //     ..default() },
-                // TextColor(SLATE_50.into()),
-        //     ),
-
-            // (
-            //     Button,
-            //     button_node.clone(),
-            //     BackgroundColor(NORMAL_BUTTON),
-            //     MenuButtonAction::BackToMainMenu,
-            //     children![
-            //         (Text::new("Back To Main Menu"), button_text_style.clone())
-            //     ]
-            // ),
-            // (
-            //     Button,
-            //     button_node,
-            //     BackgroundColor(NORMAL_BUTTON),
-            //     MenuButtonAction::BackToMainMenu,
-            //     children![
-            //         (Text::new("Restart"), button_text_style)
-            //     ]
-            // ),
-
-//----
-            // (
-            //     Node {
-            //         flex_direction: FlexDirection::Row,
-            //         align_items: AlignItems::Center,
-            //         column_gap: px(10),
-            //         ..default()
-            //     },
-            //     children![
-            //         (
-            //             Text::new("Press"),
-            //             TextFont { 
-            //                 font_size: Val::Px(40.).into(), 
-            //                 ..default()},
-            //             TextColor(SLATE_50.into()),
-            //         ),
-            //         (
-            //             Node {
-            //                 width: px(150),
-            //                 height: px(65),
-            //                 border: UiRect::all(px(5)),
-            //                 justify_content: JustifyContent::Center,
-            //                 align_items: AlignItems::Center,
-            //                 border_radius: BorderRadius::new(Val::Px(10.),Val::Px(10.),Val::Px(10.),Val::Px(10.)),
-            //                 ..default()
-            //             },
-            //             BorderColor::all(Color::WHITE),
-            //             BackgroundColor(Color::srgb(0.5, 0.5, 0.5)),
-            //             children![(
-            //                 Text::new("SPACE"),
-            //                 TextFont { 
-            //                     font_size: Val::Px(40.).into(), 
-            //                     ..default()},
-            //                 TextColor(SLATE_50.into()),
-            //             )],
-            //         ),
-            //         (
-            //             Text::new("to restart!"),
-            //             TextFont {font_size: Val::Px(40.).into(),
-            //                 ..default()},
-            //             TextColor(SLATE_50.into()),
-            //         )
-            //     ],
-            // )
-        //]
-            
 }
