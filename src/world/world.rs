@@ -23,6 +23,7 @@ impl Plugin for WorldPlugin {
         app.add_systems(OnEnter(GameState::Pending), (
             show_score,
             spawn_birdy_start_point,
+            spawn_pending_instruction,
         ));
         app.add_systems(Update, (
                 fit_camera_viewport,
@@ -39,6 +40,11 @@ impl Plugin for WorldPlugin {
                 game_over,
             )
         );
+        app.add_systems(FixedUpdate, (
+                blink_pending_instruction
+                    .after(spawn_pending_instruction)
+                    .run_if(in_state(GameState::Pending)),
+        ));
         app.init_state::<GameState>();
         app.init_resource::<Score>();
         app.add_observer(
@@ -370,3 +376,93 @@ pub fn game_over (
                 });
         });
 }
+
+#[derive(Component)]
+pub struct PendingInstruction;
+
+#[derive(Component, PartialEq, Debug)]
+pub struct PreviousTranform(pub f32);
+
+#[derive(Component)]
+pub struct AnimationTimer(pub Timer);
+
+pub const ANIMATION_TIMER: f32 = 0.5;
+
+fn spawn_pending_instruction (
+    mut commands: Commands,
+) {
+    let off_set = 50.;
+    commands
+        .spawn((
+            DespawnOnExit(GameState::Pending),
+            Visibility::default(),
+            PendingInstruction,
+            PreviousTranform(1.0),
+            Transform::default(),
+            AnimationTimer(Timer::from_seconds(ANIMATION_TIMER, TimerMode::Repeating)), 
+            Node {
+                width: percent(100),
+                height: percent(100),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                top: Val::Px(SPAWN_Y - off_set),
+                left: Val::Px(SPAWN_X),
+                ..default()
+            },
+
+        ))
+        .with_children(|parent|{
+            parent.spawn((
+                (
+                    Node {
+                        width: px(60),
+                        height: px(20),
+                        border: UiRect::all(px(2)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        border_radius: BorderRadius::new(
+                            Val::Px(5.),
+                            Val::Px(5.),
+                            Val::Px(5.),
+                            Val::Px(5.)
+                        ),
+                        ..default()
+                    },
+                    Transform::default(),
+                    // Transform::from_xyz(SPAWN_X, SPAWN_Y + off_set, SPAWN_Z),
+                    BorderColor::all(Color::WHITE),
+                    BackgroundColor(Color::srgb(0.5,0.5,0.5)),
+                    children![(
+                        Text::new("SPACE"),
+                        TextFont {
+                            font_size: Val::Px(9.).into(),
+                            ..default()
+                        },
+                        TextColor(SLATE_50.into()),
+                    )]
+                ),
+            ));
+        });
+}
+
+pub fn blink_pending_instruction (
+    mut query: Query<(Entity, &mut Node, &PendingInstruction, &mut PreviousTranform, &mut AnimationTimer)>,
+    // mut child_query: Query<&mut Transform, Without<PendingInstruction>>,
+    time: Res<Time>,
+) {
+
+    for (_, mut node, _, mut pt, mut animation_timer) in &mut query {
+        let off_set= 2.;
+
+        animation_timer.0.tick(time.delta());
+        if animation_timer.0.just_finished() {
+            if let Val::Px(v) = node.top {
+                node.top = Val::Px(v + (pt.0 * off_set));
+            }
+            pt.0 = (-1.0) * pt.0;
+        }
+    }
+}
+

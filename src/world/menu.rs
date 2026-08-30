@@ -8,7 +8,7 @@ use bevy::{
 };
 use crate::{
     world::*,
-    audio::{GLOBAL_VOLUME,PlayPitch}
+    audio::{AudioEnabled, GLOBAL_VOLUME, PlayPitch}
 };
 
 pub struct MenuPlugin;
@@ -97,6 +97,7 @@ pub fn sound_setting_button (
     mut global_volume: ResMut<GlobalVolume>,
     mut commands: Commands,
     mut play_pitch_writer: MessageWriter<PlayPitch>,
+    mut audio_enabled: ResMut<AudioEnabled>,
 ) {
     let (previous_button, mut previous_button_color) = selected_query.into_inner();
     for (interaction, volume_setting, entity) in &interaction_query {
@@ -106,6 +107,7 @@ pub fn sound_setting_button (
             commands.entity(entity).insert(SelectedOption);
             global_volume.volume = volume_setting.0;
             play_pitch_writer.write(PlayPitch);
+            audio_enabled.0 = true;
         }
     }
 }

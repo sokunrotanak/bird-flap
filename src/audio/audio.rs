@@ -104,6 +104,7 @@ pub fn spawn_mute_button (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     global_volume: Res<GlobalVolume>,
+    audio_enabled: Res<AudioEnabled>,
 ) {
     let icons = AudioIcons {
         on: asset_server.load("icons/sound_on.png"),
@@ -125,7 +126,7 @@ pub fn spawn_mute_button (
             // align_items: AlignItems::Center,
             ..default()
         },
-        ImageNode::new(icons.on.clone()),
+        ImageNode::new(if audio_enabled.0 && !(global_volume.volume == Volume::Linear(0.)) { icons.on.clone() } else { icons.off.clone() }),
         BackgroundColor(Color::NONE),
     ));
     commands.insert_resource(icons);
@@ -145,9 +146,9 @@ pub fn mute_audio(
         if *interact == Interaction::Pressed {
             audio_enabled.0 = !audio_enabled.0;
             global_volume.volume = if audio_enabled.0 {
-                volume_setting.0
+                volume_setting.0 
             } else {
-                Volume::SILENT
+                Volume::Linear(0.)
             };
             image.image = if audio_enabled.0 { icons.on.clone() } else { icons.off.clone() };
         }
