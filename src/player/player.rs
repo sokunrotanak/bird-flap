@@ -29,7 +29,12 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Pending), spawn_birdy);
         app.add_systems(Update, (
-            control.run_if(check_pending_playing),
+            control_one_shot
+                .run_if(check_oneshot)
+                .run_if(check_pending_playing),
+            control_hold
+                .run_if(not(check_oneshot))
+                .run_if(check_pending_playing),
             bird_rotation.run_if(in_state(GameState::Playing)),
             render_gizmos.run_if(in_state(GameState::Playing)),
         ));
@@ -39,6 +44,7 @@ impl Plugin for PlayerPlugin {
             check_collisions,
         ).chain().run_if(in_state(GameState::Playing))
         );
+        app.init_resource::<OneShot>();
     }
 }
 
@@ -87,15 +93,22 @@ pub fn bird_rotation (
     );
 }
 
-pub fn control (
+#[derive(Resource, Default)]
+pub struct OneShot(pub bool);
+
+pub fn check_oneshot (oneshot: Res<OneShot>) -> bool{
+    oneshot.0
+}
+
+pub fn control_one_shot (
     mut velocity: Single<&mut Velocity, With<Player>>,
     mut game_state: ResMut<NextState<GameState>>,
     buttons: Res<ButtonInput<KeyCode>>,
     state: Res<State<GameState>>,
     touches: Res<Touches>,
     mouse_input: Res<ButtonInput<MouseButton>>,
+
 ) {
-    
     if buttons.just_pressed(KeyCode::Space) || mouse_input.just_pressed(MouseButton::Left){
         velocity.0 = VELOCITY;
         if *state.get() == GameState::Pending {
@@ -108,6 +121,37 @@ pub fn control (
         }
         if *state.get() == GameState::Pending {
             game_state.set(GameState::Playing)
+        }
+    }
+}
+
+pub fn control_hold (
+    mut velocity: Single<&mut Velocity, With<Player>>,
+    mut game_state: ResMut<NextState<GameState>>,
+    buttons: Res<ButtonInput<KeyCode>>,
+    state: Res<State<GameState>>,
+    touches: Res<Touches>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    time: Res<Time>,
+) {
+    if buttons.pressed(KeyCode::Space) || mouse_input.pressed(MouseButton::Left){
+        velocity.0 = VELOCITY;
+        if *state.get() == GameState::Pending {
+            game_state.set(GameState::Playing)
+        }
+    }
+    for touch in touches.iter_just_pressed() {
+        if touch.position() != SOUND_BUTTONVEC {
+            velocity.0 = VELOCITY;
+        }
+        if *state.get() == GameState::Pending {
+            game_state.set(GameState::Playing)
+        }
+    }
+    
+    if velocity.0 > 0.0 {
+        if !buttons.pressed(KeyCode::Space) || !mouse_input.pressed(MouseButton::Left) {
+            velocity.0 -= GRAVITY * time.delta_secs();
         }
     }
 }

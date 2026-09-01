@@ -2504,6 +2504,8 @@ name = "flappy-bird"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_feathers",
+ "bevy_utils",
  "getrandom 0.4.3",
  "rand",
 ]
