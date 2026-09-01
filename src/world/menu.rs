@@ -309,7 +309,7 @@ fn update_checkbox (
     >,
     mut q_border_color: Query<
         (&mut BorderColor, &mut Children),
-        (Without<TestCheckBox>)
+        Without<TestCheckBox>
     >,
     mut q_bg_color: Query<&mut BackgroundColor, (Without<TestCheckBox>, Without<Children>)>,
     mut oneshot: ResMut<OneShot>,
@@ -350,7 +350,7 @@ fn update_checkbox2 (
     >,
     mut q_border_color: Query<
         (&mut BorderColor, &mut Children),
-        (Without<TestCheckBox>)
+        Without<TestCheckBox>
     >,
     mut q_bg_color: Query<
         &mut BackgroundColor,
@@ -508,7 +508,6 @@ pub fn sound_settings_menu_setup(mut commands: Commands, global_volume: Res<Glob
 }
 
 pub fn menu_action(
-    mut one_shot: ResMut<OneShot>,
     interaction_query: Query<
         (&Interaction, &MenuButtonAction),
         (Changed<Interaction>, With<Button>),
