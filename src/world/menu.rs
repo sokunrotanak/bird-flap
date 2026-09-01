@@ -4,11 +4,10 @@ use bevy::{
     color::palettes::{css::*, tailwind::SLATE_50},
     //ecs::component::Mutable, 
     prelude::*,
-    ui_widgets::{*, checkbox_self_update, observe, Checkbox},
+    ui_widgets::{checkbox_self_update, observe, Checkbox},
     ui::{Checked, Pressed},
     input_focus::{
-        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        FocusCause, InputFocus,
+        tab_navigation::TabIndex,
     },
     picking::hover::Hovered,
     // feathers::{*, controls::FeathersCheckbox},
