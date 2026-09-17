@@ -1,0 +1,20 @@
+## License
+
+### Code
+
+The source code is licensed under either of
+
+* MIT License (LICENSE-MIT or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0 (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+
+at your option.
+
+### Assets
+
+The game art assets in `assets/` (`bird-flap-bird128x105.png`,
+`birdflap-background.png`, `pipe.png`, `spawn-point.png`, and the icons in
+`assets/icons/`) are licensed under a
+[Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+
+© 2026 Sokunrotanak Srey. You are free to use, share, and adapt these assets,
+including commercially, provided you give appropriate credit.
