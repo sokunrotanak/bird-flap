@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::audio::Volume;
 use std::time::Duration;
-use crate::world::*;
+use crate::world::{*, menu::*};
 
 pub const GLOBAL_VOLUME: f32 = 0.4;
 

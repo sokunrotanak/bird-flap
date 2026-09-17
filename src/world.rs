@@ -9,6 +9,7 @@ use bevy::{
     window::WindowResized,
 };
 
+pub mod menu;
 use crate::world::menu::*;
 
 pub struct WorldPlugin;

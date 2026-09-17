@@ -284,7 +284,7 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
                     ..default()
                 },
                 children![(
-                    Text::new("OneShot JumpMode"),
+                    Text::new(caption),
                     TextFont { font_size: FontSize::Px(20.0), ..default()}
                 )]
             ))

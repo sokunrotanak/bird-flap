@@ -12,6 +12,7 @@ mod player;
 use audio::*;
 use pipes::*;
 use world::*;
+use world::menu::*;
 use player::*;
 
 
