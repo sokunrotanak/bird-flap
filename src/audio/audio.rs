@@ -29,32 +29,32 @@ impl Plugin for PointAudioPlugin {
 pub struct AudioEnabled(pub bool);
 
 #[derive(Component)]
-pub struct AudioToggleButton;
+struct AudioToggleButton;
 
 #[derive(Message, Default)]
 pub struct PlayPitch;
 
 #[derive(Resource)]
-pub struct PitchFrequency(f32);
+struct PitchFrequency(f32);
 
 #[derive(Resource)]
-pub struct PitchFrequency2(f32);
+struct PitchFrequency2(f32);
 
 #[derive(Component)]
-pub struct PendingPitch(Timer);
+struct PendingPitch(Timer);
 
-pub fn check_pending_playing (
+fn check_pending_playing (
     state: Res<State<GameState>>
 ) -> bool {
     *state.get() == GameState::Pending || *state.get() == GameState::Playing
 }
 
-pub fn setup_audio(mut commands: Commands) {
+fn setup_audio(mut commands: Commands) {
     commands.insert_resource(PitchFrequency(1000.0));
     commands.insert_resource(PitchFrequency2(1370.0));
 }
 
-pub fn play_pitch(
+fn play_pitch(
     mut pitch_assets: ResMut<Assets<Pitch>>,
     frequency: Res<PitchFrequency>,
     mut play_pitch_reader: MessageReader<PlayPitch>,
@@ -75,7 +75,7 @@ pub fn play_pitch(
     }
 }
 
-pub fn play_delayed_pitch(
+fn play_delayed_pitch(
     time: Res<Time>,
     mut pitch_assets: ResMut<Assets<Pitch>>,
     frequency2: Res<PitchFrequency2>,
@@ -95,12 +95,12 @@ pub fn play_delayed_pitch(
 }
 
 #[derive(Resource)]
-pub struct AudioIcons {
+struct AudioIcons {
     on: Handle<Image>,
     off: Handle<Image>,
 }
 
-pub fn spawn_mute_button (
+fn spawn_mute_button (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     global_volume: Res<GlobalVolume>,
@@ -132,7 +132,7 @@ pub fn spawn_mute_button (
     commands.insert_resource(icons);
 }
 
-pub fn mute_audio(
+fn mute_audio(
     mut interaction: Query<
         (&Interaction, &mut ImageNode, &ComputedNode, &VolumeSetting, &UiGlobalTransform),
         (Changed<Interaction>, With<AudioToggleButton>),

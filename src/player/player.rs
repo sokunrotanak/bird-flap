@@ -11,17 +11,17 @@ use crate::audio::*;
 // pub struct Bird;
 
 #[derive(Component)]
-pub struct Collider(pub Vec2);
+struct Collider(Vec2);
 
 #[derive(Component)]
 #[require(Gravity(GRAVITY), Velocity)]
-pub struct Player;
+struct Player;
 
 #[derive(Component)]
-pub struct Gravity(pub f32);
+struct Gravity(f32);
 
 #[derive(Component, Default)]
-pub struct Velocity(pub f32);
+struct Velocity(f32);
 
 pub struct PlayerPlugin;
 
@@ -48,13 +48,13 @@ impl Plugin for PlayerPlugin {
     }
 }
 
-pub fn check_pending_playing (
-    state: Res<State<GameState>>
+fn check_pending_playing (
+state: Res<State<GameState>>
 ) -> bool {
     *state.get() == GameState::Pending || *state.get() == GameState::Playing
 }
 
-pub fn gravity (
+fn gravity (
     mut transform: Query <(&mut Transform, &mut Velocity, &Gravity)>,
     time: Res<Time>,
 ) {
@@ -64,7 +64,7 @@ pub fn gravity (
     }
 }
 
-pub fn spawn_birdy (
+fn spawn_birdy (
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
@@ -81,7 +81,7 @@ pub fn spawn_birdy (
     ));
 }
 
-pub fn bird_rotation (
+fn bird_rotation (
     mut bird: Single<
         (&mut Transform, &Velocity),
         With<Player>,
@@ -96,11 +96,11 @@ pub fn bird_rotation (
 #[derive(Resource, Default)]
 pub struct OneShot(pub bool);
 
-pub fn check_oneshot (oneshot: Res<OneShot>) -> bool{
+fn check_oneshot (oneshot: Res<OneShot>) -> bool{
     oneshot.0
 }
 
-pub fn control_one_shot (
+fn control_one_shot (
     mut velocity: Single<&mut Velocity, With<Player>>,
     mut game_state: ResMut<NextState<GameState>>,
     buttons: Res<ButtonInput<KeyCode>>,
@@ -125,7 +125,7 @@ pub fn control_one_shot (
     }
 }
 
-pub fn control_hold (
+fn control_hold (
     mut velocity: Single<&mut Velocity, With<Player>>,
     mut game_state: ResMut<NextState<GameState>>,
     buttons: Res<ButtonInput<KeyCode>>,
@@ -156,9 +156,9 @@ pub fn control_hold (
     }
 }
 
-pub const CLAMP_VEL: f32 = 2000.0;
+const CLAMP_VEL: f32 = 2000.0;
 
-pub fn border_patrol (
+fn border_patrol (
     mut bird: Query<(&mut Transform, &mut Velocity, &Gravity, &Collider), With<Player>>,
     time: Res<Time>,
     mut game_state: ResMut<NextState<GameState>>
@@ -176,7 +176,7 @@ pub fn border_patrol (
     }
 }
 
-pub fn check_collisions(
+fn check_collisions(
     mut commands: Commands,
     bird: Single<(&Sprite, Entity), With<Player>>,
     pipe_segments: Query<
@@ -237,7 +237,7 @@ pub fn check_collisions(
     Ok(())
 }
 
-pub fn render_gizmos (
+fn render_gizmos (
     mut config_store: ResMut<GizmoConfigStore>,
 ) {
     let (config, _) = config_store

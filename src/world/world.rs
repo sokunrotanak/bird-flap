@@ -56,11 +56,11 @@ impl Plugin for WorldPlugin {
 }
 
 pub const CANVAS_SIZE: Vec2 = Vec2::new(800.0, 600.0);
-pub const BIRD_CUSTOM: Vec2 = Vec2::new(128.0, 105.0);
-pub const SCALE_FACTOR: f32 = 0.5;
+const BIRD_CUSTOM: Vec2 = Vec2::new(128.0, 105.0);
+const SCALE_FACTOR: f32 = 0.5;
 pub const BIRD_SIZE: Vec2 = Vec2::new(BIRD_CUSTOM.x * SCALE_FACTOR, BIRD_CUSTOM.y * SCALE_FACTOR);
 
-pub const PADDING_X: f32 = 20.0;
+const PADDING_X: f32 = 20.0;
 pub const PADDING_Y: f32 = 20.0;
 pub const COLLIDER: Vec2 = Vec2::new(BIRD_SIZE.x - PADDING_X, BIRD_SIZE.y - PADDING_Y);
 pub const PIPE_SIZE: Vec2 = Vec2::new(128.0, CANVAS_SIZE.y);
@@ -85,21 +85,21 @@ pub enum GameState {
 }
 
 #[derive(Resource, Default)]
-pub struct Score(pub u32);
+struct Score(u32);
 
 #[derive(Event)]
 pub struct ScorePoint;
 
 #[derive(Component)]
-pub struct ScoreText;
+struct ScoreText;
 
 #[derive(Component)]
-pub struct SpawnBranch;
+struct SpawnBranch;
 
 const TARGET_WIDTH: f32 = 800.0;
 const TARGET_HEIGHT: f32 = 600.0;
 
-pub fn setup_camera(mut commands: Commands){
+fn setup_camera(mut commands: Commands){
     commands.spawn((
         Camera2d,
         Projection::Orthographic(OrthographicProjection {
@@ -137,7 +137,7 @@ fn fit_camera_viewport(
     }
 }
 
-pub fn show_score (
+fn show_score (
     mut commands: Commands,
     mut score: ResMut<Score>,
 ) {
@@ -161,7 +161,7 @@ pub fn show_score (
     ));
 }
 
-pub fn score_update (
+fn score_update (
     mut query: Query<&mut Text, With<ScoreText>>,
     score: Res<Score>,
 ) {
@@ -174,7 +174,7 @@ pub fn score_update (
 pub struct BackgroundMaterial {
     #[texture(0)]
     #[sampler(1)]
-    pub color_texture: Handle<Image>,
+    color_texture: Handle<Image>,
 }
 
 impl Material2d for BackgroundMaterial {
@@ -183,7 +183,7 @@ impl Material2d for BackgroundMaterial {
     }
 }
 
-pub fn background (
+fn background (
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -211,7 +211,7 @@ pub fn background (
         ));
 }
 
-pub fn spawn_birdy_start_point (
+fn spawn_birdy_start_point (
     mut commands: Commands,
     asset_server: Res<AssetServer>
 ) {
@@ -236,7 +236,7 @@ fn despawn_birdy_start_point (
     }
 }
 
-pub fn shift_branch_to_the_left (
+fn shift_branch_to_the_left (
     mut branch: Query<&mut Transform, With<SpawnBranch>>,
     time: Res<Time>,
 ) {
@@ -245,7 +245,7 @@ pub fn shift_branch_to_the_left (
     }
 }
 
-pub fn enter_pending (
+fn enter_pending (
     input: Res<ButtonInput<KeyCode>>,
     mut game_state: ResMut<NextState<GameState>>,
     state: Res<State<GameState>>,
@@ -261,7 +261,7 @@ pub fn enter_pending (
     }
 }
 
-pub fn game_over (
+fn game_over (
     mut commands: Commands,
     score: Res<Score>,
 ) {
@@ -378,15 +378,15 @@ pub fn game_over (
 }
 
 #[derive(Component)]
-pub struct PendingInstruction;
+struct PendingInstruction;
 
 #[derive(Component, PartialEq, Debug)]
-pub struct PreviousTranform(pub f32);
+struct PreviousTranform(f32);
 
 #[derive(Component)]
-pub struct AnimationTimer(pub Timer);
+struct AnimationTimer(Timer);
 
-pub const ANIMATION_TIMER: f32 = 0.5;
+const ANIMATION_TIMER: f32 = 0.5;
 
 fn spawn_pending_instruction (
     mut commands: Commands,
@@ -447,7 +447,7 @@ fn spawn_pending_instruction (
         });
 }
 
-pub fn blink_pending_instruction (
+fn blink_pending_instruction (
     mut query: Query<(Entity, &mut Node, &PendingInstruction, &mut PreviousTranform, &mut AnimationTimer)>,
     // mut child_query: Query<&mut Transform, Without<PendingInstruction>>,
     time: Res<Time>,

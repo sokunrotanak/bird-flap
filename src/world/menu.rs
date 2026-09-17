@@ -5,7 +5,7 @@ use bevy::{
     //ecs::component::Mutable, 
     prelude::*,
     ui_widgets::{checkbox_self_update, observe, Checkbox},
-    ui::{Checked, Pressed},
+    ui::{Checked},
     input_focus::{
         tab_navigation::TabIndex,
     },
@@ -39,7 +39,7 @@ impl Plugin for MenuPlugin {
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum MenuState {
+enum MenuState {
     Main,
     SettingsSound,
     #[default]
@@ -47,23 +47,23 @@ pub enum MenuState {
 }
 
 #[derive(Component)]
-pub struct SelectedOption;
+struct SelectedOption;
 
 #[derive(Component)]
-pub struct OnMainMenuScreen;
+struct OnMainMenuScreen;
 
 #[derive(Component)]
-pub struct OnSoundSettingsMenuScreen;
+struct OnSoundSettingsMenuScreen;
 
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 pub struct VolumeSetting(pub Volume);
 
 pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-pub const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
-pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+const HOVERED_PRESSED_BUTTON: Color = Color::srgb(0.25, 0.65, 0.25);
+const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 pub const TEXT_COLOR: Color = Color::Srgba(SLATE_50);
-pub const TRANSPARENT_BACKGROUND: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
+const TRANSPARENT_BACKGROUND: Color = Color::srgba(0.5, 0.5, 0.5, 0.5);
 
 #[derive(Component)]
 pub enum MenuButtonAction {
@@ -80,7 +80,7 @@ pub enum GameMode {
     Endless,
 }
 
-pub fn button_system (
+fn button_system (
     mut interaction_query: Query<
         (&Interaction, &mut BackgroundColor, Option<&SelectedOption>),
         (Changed<Interaction>, With<Button>),
@@ -96,7 +96,7 @@ pub fn button_system (
     }
 }
 
-pub fn sound_setting_button (
+fn sound_setting_button (
     interaction_query: Query<
         (&Interaction, &VolumeSetting, Entity),
         (Changed<Interaction>, With<Button>),
@@ -120,14 +120,14 @@ pub fn sound_setting_button (
     }
 }
 
-pub fn menu_setup (mut menu_state: ResMut<NextState<MenuState>>) {
+fn menu_setup (mut menu_state: ResMut<NextState<MenuState>>) {
     menu_state.set(MenuState::Main);
 }
 
 #[derive(Component, Default)]
 struct TestCheckBox;
 
-pub fn main_menu_setup (mut commands: Commands, asset_server: ResMut<AssetServer>) {
+fn main_menu_setup (mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let button_node = Node {
         width: px(300),
         height: px(65),
@@ -428,7 +428,7 @@ fn set_checkbox_style (
 
 }
 
-pub fn sound_settings_menu_setup(mut commands: Commands, global_volume: Res<GlobalVolume>) {
+fn sound_settings_menu_setup(mut commands: Commands, global_volume: Res<GlobalVolume>) {
     let button_node = Node {
         width: px(200),
         height: px(65),
@@ -506,7 +506,7 @@ pub fn sound_settings_menu_setup(mut commands: Commands, global_volume: Res<Glob
     ));
 }
 
-pub fn menu_action(
+fn menu_action(
     interaction_query: Query<
         (&Interaction, &MenuButtonAction),
         (Changed<Interaction>, With<Button>),

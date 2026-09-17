@@ -26,7 +26,7 @@ impl Plugin for PipePlugin {
 }
 
 #[derive(Component)]
-pub struct Pipe;
+struct Pipe;
 
 #[derive(Component)]
 pub struct PipeTop;
@@ -109,7 +109,7 @@ fn spawn_pipes (
     ));
 }
 
-pub fn shift_pipes_to_the_left (
+fn shift_pipes_to_the_left (
     mut pipes: Query<&mut Transform, With<Pipe>>,
     time: Res<Time>,
 ) {
