@@ -10,3 +10,17 @@ rand = "0.10.2"
 getrandom = { version = "0.4.3", features = ["wasm_js"] }
 bevy_feathers = "0.19.1"
 bevy_utils = { version = "0.19.1", features = ["debug"]}
+reqwest = { version = "0.13.5", features = ["json", "query"] }
+serde = { version = "1.0.229", features = ["derive"] }
+anyhow = "1.0.104"
+dotenvy = "0.15.7"
+wasm-bindgen = "0.2.129"
+ehttp = { version = "0.7.1", features = ["native-async", "json"]}
+bevy_tasks = "0.19.1"
+crossbeam-channel = "0.5.17"
+dotenvy_macro = "0.15.7"
+chrono = "0.4.45"
+
+
+[build-dependencies]
+dotenvy = "0.15.7"
