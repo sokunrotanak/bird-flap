@@ -10,7 +10,7 @@ use bevy::{
 };
 
 pub mod menu;
-use crate::world::menu::*;
+use crate::{scoreboard::ScoreSubmitted, world::menu::*};
 
 pub struct WorldPlugin;
 
@@ -31,12 +31,18 @@ impl Plugin for WorldPlugin {
                 score_update
                     .run_if(resource_changed::<Score>)
                     .run_if(in_state(GameState::Playing)),
-                enter_pending,
+//                enter_pending,
                 despawn_birdy_start_point.run_if(in_state(GameState::Playing)),
                 shift_branch_to_the_left.run_if(in_state(GameState::Playing)),
         ));
         app.add_systems(
             OnEnter(GameState::GameOver),
+            (
+                game_over,
+            )
+        );
+        app.add_systems(
+            OnExit(OverlayState::Nickname),
             (
                 game_over,
             )
@@ -86,7 +92,7 @@ pub enum GameState {
 }
 
 #[derive(Resource, Default)]
-struct Score(u32);
+pub struct Score(pub u32);
 
 #[derive(Event)]
 pub struct ScorePoint;
@@ -265,6 +271,7 @@ fn enter_pending (
 fn game_over (
     mut commands: Commands,
     score: Res<Score>,
+    submission_check: Res<ScoreSubmittedThisRun>,
 ) {
     let final_score = format!("Your final score is {}", score.0.to_string());
     let button_text_style = (
@@ -300,6 +307,7 @@ fn game_over (
             ..default() 
         },
         DespawnOnExit(GameState::GameOver),
+        DespawnOnExit(OverlayState::Nickname),
         ))
         .with_children(|parent| {
             parent
@@ -344,8 +352,8 @@ fn game_over (
                                 width: percent(100),
                                 height: percent(100),
                                 padding: UiRect::new( 
-                                    Val::Px(200.),
-                                    Val::Px(200.), 
+                                    Val::Px(100.),
+                                    Val::Px(100.), 
                                     Val::Px(0.), 
                                     auto(),//Val::Px(20.), 
                                 ),
@@ -355,6 +363,26 @@ fn game_over (
                             }
                         )
                         .with_children(|parent| {
+                            if !submission_check.0 {
+                            parent.spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::SubmitScoreUI,
+                                children![
+                                    (Text::new("Submit Score"), button_text_style.clone())
+                                ]
+                            ));
+                            };
+                            parent.spawn((
+                                Button,
+                                button_node.clone(),
+                                BackgroundColor(NORMAL_BUTTON),
+                                MenuButtonAction::Scoreboard,
+                                children![
+                                    (Text::new("Scoreboard"), button_text_style.clone())
+                                ]
+                            ));
                             parent.spawn((
                                 Button,
                                 button_node.clone(),

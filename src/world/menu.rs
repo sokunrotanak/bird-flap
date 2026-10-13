@@ -1,19 +1,11 @@
 use bevy::{
-    app::AppExit,
-    audio::Volume,
-    color::palettes::{css::*, tailwind::SLATE_50},
-    //ecs::component::Mutable, 
-    prelude::*,
-    ui_widgets::{checkbox_self_update, observe, Checkbox},
-    ui::{Checked},
-    input_focus::{
-        tab_navigation::TabIndex,
-    },
-    picking::hover::Hovered,
-    // feathers::{*, controls::FeathersCheckbox},
+    app::AppExit, audio::Volume, color::palettes::{css::*, tailwind::SLATE_50}, input::keyboard::{self, *}, input_focus::{AutoFocus, tab_navigation::TabIndex}, picking::hover::Hovered, prelude::*, text::{EditableText, EditableTextFilter, TextCursorStyle}, ui::{Checked, FocusPolicy}, ui_widgets::{Checkbox, checkbox_self_update, observe}
 };
+use chrono::{DateTime, Local};
 use crate::{
-    audio::{AudioEnabled, GLOBAL_VOLUME, PlayPitch}, player::OneShot, world::*
+    audio::{AudioEnabled, GLOBAL_VOLUME, PlayPitch}, 
+    player::OneShot, world::*,
+    scoreboard::*,
 };
 
 pub struct MenuPlugin;
@@ -24,27 +16,46 @@ impl Plugin for MenuPlugin {
         //     instruction,//.run_if(in_state(GameState::MainMenu)),
         // ));
         app.init_state::<MenuState>();
+        app.init_resource::<ScoreSubmittedThisRun>();
         app.add_systems(OnEnter(GameState::MainMenu), menu_setup);
         app.add_systems(OnEnter(MenuState::Main), main_menu_setup);
         app.add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup);
+        app.add_systems(OnEnter(OverlayState::Scoreboard), start_fetch);
+        app.add_systems(OnEnter(OverlayState::Nickname), nickname_ui);
         app.add_systems(Update,(
             menu_action,
             button_system,
             update_checkbox,
             update_checkbox2,
         ).run_if(|state: Res<State<GameState>>| {matches!(state.get(), GameState::MainMenu | GameState::GameOver)}));
-        app.add_systems(Update, sound_setting_button.run_if(in_state(MenuState::SettingsSound)));
-
+        app.add_systems(
+            Update, 
+            (
+                sound_setting_button.run_if(in_state(MenuState::SettingsSound)),
+                refresh_row.run_if(in_state(OverlayState::Scoreboard)),
+                // nickname_input.run_if(in_state(OverlayState::Nickname)),
+                update_submit_status.run_if(in_state(OverlayState::Nickname).and_then(resource_changed::<SubmitStatus>)),
+                enter_submit.run_if(in_state(OverlayState::Nickname)),
+        ));
+        app.init_state::<OverlayState>();
+        app.add_observer(on_submit);
+        app.add_observer(on_submittted);
+        app.add_systems(OnEnter(GameState::Pending),  reset_submission_check);
+        
     }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum MenuState {
     Main,
+    // Scoreboard,
     SettingsSound,
     #[default]
     Disabled,
 }
+
+#[derive(Component)]
+struct ScoreRows;
 
 #[derive(Component)]
 struct SelectedOption;
@@ -57,6 +68,14 @@ struct OnSoundSettingsMenuScreen;
 
 #[derive(Component, PartialEq, Debug, Clone, Copy)]
 pub struct VolumeSetting(pub Volume);
+
+#[derive(States, Default, Clone, Copy, Eq, PartialEq, Hash, Debug)]
+pub enum OverlayState {
+    #[default]
+    None,
+    Scoreboard,
+    Nickname,
+}
 
 pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -71,13 +90,18 @@ pub enum MenuButtonAction {
     SettingsSound,
     JumpMode,
     BackToMainMenu,
+    SubmitScore,
+    SubmitScoreUI,
+    Scoreboard,
+    ExitOverlay,
     Quit,
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub enum GameMode {
-    Adventure,
-    Endless,
+    #[default]
+    OneShot,
+    DisabledOneShot,
 }
 
 fn button_system (
@@ -130,8 +154,8 @@ struct TestCheckBox;
 fn main_menu_setup (mut commands: Commands, asset_server: ResMut<AssetServer>) {
     let button_node = Node {
         width: px(300),
-        height: px(65),
-        margin: UiRect::all(px(20)),
+        height: px(50),
+        margin: UiRect::all(px(10)),
         justify_content: JustifyContent::Center,
         align_items: AlignItems::Center,
         border_radius: BorderRadius::new(
@@ -188,6 +212,19 @@ fn main_menu_setup (mut commands: Commands, asset_server: ResMut<AssetServer>) {
                     children![
                         (
                             Text::new("New Game"),
+                            button_text_font.clone(),
+                            TextColor(TEXT_COLOR),
+                        )
+                    ]
+                ),
+                (
+                    Button,
+                    button_node.clone(),
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButtonAction::Scoreboard,
+                    children![
+                        (
+                            Text::new("Scoreboard"),
                             button_text_font.clone(),
                             TextColor(TEXT_COLOR),
                         )
@@ -511,9 +548,11 @@ fn menu_action(
         (&Interaction, &MenuButtonAction),
         (Changed<Interaction>, With<Button>),
     >,
+    mut commands: Commands,
     mut app_exit_writer: MessageWriter<AppExit>,
     mut menu_state: ResMut<NextState<MenuState>>,
     mut game_state: ResMut<NextState<GameState>>,
+    mut overlay_state: ResMut<NextState<OverlayState>>,
 ) {
     for (interaction, menu_button_action) in &interaction_query {
         if *interaction == Interaction::Pressed {
@@ -525,6 +564,10 @@ fn menu_action(
                     game_state.set(GameState::Pending);
                     menu_state.set(MenuState::Disabled);
                 }
+                MenuButtonAction::Scoreboard => {
+                    //
+                    overlay_state.set(OverlayState::Scoreboard);
+                }
                 MenuButtonAction::SettingsSound => {
                     menu_state.set(MenuState::SettingsSound);
                 }
@@ -534,8 +577,435 @@ fn menu_action(
                 MenuButtonAction::BackToMainMenu => {
                     game_state.set(GameState::MainMenu);
                     menu_state.set(MenuState::Main);
+                    overlay_state.set(OverlayState::None)
                 },
+                MenuButtonAction::SubmitScoreUI => {
+                    //
+                    overlay_state.set(OverlayState::Nickname);
+                },
+                MenuButtonAction::ExitOverlay => {
+                    overlay_state.set(OverlayState::None);
+                }
+                MenuButtonAction::SubmitScore => {
+                    commands.trigger(SubmitNickname);
+                }
             }
         }
+    }
+}
+
+fn start_fetch (
+    mut commands: Commands,
+    mut scoreboard: ResMut<ScoreboardLog>,
+    channel: Res<ScoreboardChannel>,
+) {
+    scoreboard.status = LoadStatus::Loading;
+    let tx = channel.tx.clone();
+    trigger_fetch(tx);
+    overlay_scoreboard(&mut commands);
+}
+
+const COL_RANK: Val = Val::Px(50.0);
+const COL_NAME: Val = Val::Px(200.0);
+const COL_SCORE: Val = Val::Px(100.0);
+const COL_GAME_MODE: Val = Val::Px(200.0);
+const COL_SUBMIT_TIME: Val = Val::Px(200.0);
+
+fn cell (
+    p: &mut ChildSpawnerCommands,
+    text: impl Into<String>, width: Val, align: Justify
+) {
+    p.spawn((
+        Node {width, ..default() },
+        children![(
+            Text::new(text),
+            TextFont { font_size: Val::Px(16.0).into(), ..default() },
+            TextColor(TEXT_COLOR),
+            TextLayout::justify(align),
+        )],
+    ));
+}
+
+fn score_row (
+    p: &mut ChildSpawnerCommands,
+    rank: &str,
+    name: &str,
+    score: &str,
+    // game_mode: &str,
+    submitted_at: &str,
+    bg: Color,
+) {
+    p.spawn((
+        Node {
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            column_gap: px(12),
+            padding: UiRect::axes(px(12), px(4)),
+            ..default()
+        },
+        BackgroundColor(bg),
+    ))
+    .with_children(|r| {
+        cell(r, rank, COL_RANK, Justify::Left);
+        cell(r, name, COL_NAME, Justify::Left);
+        cell(r, score, COL_SCORE, Justify::Right);
+        // cell(r, game_mode, COL_GAME_MODE, Justify::Center);
+        cell(r, submitted_at, COL_SUBMIT_TIME, Justify::Center);
+    });
+}
+
+#[derive(Component)]
+struct OnScoreboardScreen;
+
+fn overlay_scoreboard (
+    commands: &mut Commands,
+) {
+    let button_node = Node {
+        width: px(100),
+        height: px(40),
+        margin: UiRect::all(px(10)),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        ..default()
+    };
+    let button_text_style = (
+        TextFont {
+            font_size: FontSize::Px(18.0),
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+    );
+    commands.spawn((
+        DespawnOnExit(OverlayState::Scoreboard),
+        OnScoreboardScreen,
+        FocusPolicy::Block,
+        Node {
+            width: percent(100), 
+            height: percent(100),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        GlobalZIndex(10),
+        BackgroundColor(TRANSPARENT_BACKGROUND),
+    )).with_children(|root| {
+        root.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                padding: UiRect::all(px(20)),
+                row_gap: px(4),
+                border_radius: BorderRadius::all(px(12)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 1.)),
+        )).with_children(|panel| {
+            panel.spawn((
+                Text::new("Scoreboard"), 
+                TextFont { font_size: Val::Px(24.0).into(), ..default() }, 
+                TextColor(TEXT_COLOR)
+            ));
+            score_row(panel, "#", "Name", "Score", "Sumit Time", Color::NONE);
+            panel.spawn((
+                ScoreRows,
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                }
+            ));
+            panel.spawn(
+                (
+                    Button,
+                    button_node,
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButtonAction::ExitOverlay,
+                    children![(Text::new("Back"), button_text_style)]
+                ),
+            );
+        });
+
+    });
+}
+
+
+fn refresh_row (
+    board: Res<ScoreboardLog>,
+    container: Single<Entity, With<ScoreRows>>,
+    mut commands: Commands,
+){
+    if !board.is_changed() { return; }
+    commands.entity(*container).despawn_children();
+    commands.entity(*container).with_children(|p| {
+        match &board.status {
+            LoadStatus::NotLoaded => {}
+            LoadStatus::Loading => { 
+                p.spawn((
+                    Text::new("Loading..."),
+                    TextColor(TEXT_COLOR)
+
+                ));
+                // board.rows.clear();
+            }
+            LoadStatus::Failed(e) => {
+                p.spawn(
+                    Text::new(format!("Couldn't load: {e}")),
+                );
+            },
+            LoadStatus::Loaded => for (i, r) in board.rows.iter().enumerate() {
+                let datetime = DateTime::parse_from_rfc3339(&r.submitted_at).expect("Failed to parse RFC3339 date");
+                let local_datetime: DateTime<Local> = DateTime::from(datetime);
+                let custom_format = local_datetime.format("%Y-%m-%d %H:%M");
+                let bg = if Some(r.id) == board.last_submitted_id{ Color::srgba(1.0, 0.84, 0., 1.)}
+                else if i % 2 == 0 { Color::srgba(1.,1.,1., 0.05) } else { Color::NONE};
+                score_row(p, &(i+1).to_string(), &r.nickname, &r.score.to_string(), &custom_format.to_string(), bg);
+                },
+            }
+        });
+}
+
+#[derive(Event)]
+struct SubmitNickname;
+
+#[derive(Resource, Default)]
+pub struct ScoreSubmittedThisRun(pub bool);
+
+fn reset_submission_check (
+    mut submission_check: ResMut<ScoreSubmittedThisRun>,
+) {
+    submission_check.0 = false;
+}
+
+// fn nickname_input (
+//     mut events: MessageReader<KeyboardInput>,
+//     // mut form: ResMut<NicknameForm>,
+//     mut commands: Commands,
+//     interaction_query: Query<
+//         (&Interaction, &MenuButtonAction),
+//         (Changed<Interaction>, With<Button>),
+//     >,
+// ) {
+//     const MAX_NICKNAME_LEN: usize = 25;
+//     if !matches!(form.status, SubmitStatus::Editing) {return;}
+//     for ev in events.read() {
+//         if !ev.state.is_pressed() {continue;}
+//         match &ev.logical_key {
+//             Key::Enter => {commands.trigger(SubmitNickname); }
+//             Key::Backspace => {form.text.pop();}
+//             Key::Space => if form.text.len() < MAX_NICKNAME_LEN { form.text.push(' ');},
+//             Key::Character(s) => for c in s.chars() {
+//                 if (c.is_alphanumeric() || c == '_' || c == '-') && form.text.chars().count() < MAX_NICKNAME_LEN {
+//                     form.text.push(c);
+//                 }
+//             },
+//             _ => {}
+//         }
+//     }
+//     for (interaction, menu_button_action) in &interaction_query {
+//         if *interaction == Interaction::Pressed {
+//             match menu_button_action {
+//                 MenuButtonAction::SubmitScore => {commands.trigger(SubmitNickname);},
+//                 _ => {},
+//             }
+//         }
+//     }
+// }
+
+const MODE_ONESHOT: &str = "OneShot";
+const MODE_DISABLE: &str = "Disabled OneShot";
+
+fn on_submit (
+    _: On<SubmitNickname>, 
+    input: Single<&EditableText, With<NicknameInput>>,
+    mut status: ResMut<SubmitStatus>,
+    score: Res<Score>,
+    channel: Res<ScoreboardChannel>,
+    mode: Res<OneShot>,
+) {
+
+    if matches!(*status, SubmitStatus::Submitting) {return;} 
+
+    let name = input.value().to_string().trim().to_owned();
+    if name.is_empty() { 
+        *status = SubmitStatus::Failed("Enter a name".into()); 
+        return;
+    }
+    let jump_mode = if mode.0 { MODE_ONESHOT } else { MODE_DISABLE }.to_string();
+    //     OneShot(true) => {&"OneShot".to_string()},
+    //     OneShot(false) => {&"Disabled Oneshot".to_string()}, 
+    // };
+
+    *status = SubmitStatus::Submitting;
+    request_submit(
+        channel.tx.clone(), 
+        SubmitScore {
+            nickname: name, 
+            score: score.0, 
+            game_mode: jump_mode,
+        }
+    )
+
+}
+
+fn on_submittted (
+    submitted_score: On<ScoreSubmitted>,
+    mut board: ResMut<ScoreboardLog>,
+    mut status: ResMut<SubmitStatus>,
+    mut overlay: ResMut<NextState<OverlayState>>,
+    mut submission_check: ResMut<ScoreSubmittedThisRun>,
+    mut commands: Commands,
+    score_button: Query<Entity, With<EnterNickNameButton>>,
+) {
+    board.last_submitted_id = Some(submitted_score.id);
+    *status = SubmitStatus::Editing;
+    overlay.set(OverlayState::Scoreboard);
+    submission_check.0 = true;
+    for e in &score_button {
+        commands.entity(e).despawn();
+    }
+    
+}
+
+fn update_submit_status(
+    status: Res<SubmitStatus>,
+    mut q: Single<&mut Text, With<SubmitStatusText>>,
+) {
+    q.0 = match &*status {
+        SubmitStatus::Editing => String::new(),
+        SubmitStatus::Submitting => "Submitting...".into(),
+        SubmitStatus::Failed(e) => e.clone(),
+    };
+}
+
+
+#[derive(Component)]
+pub struct NicknameInput;
+
+#[derive(Component)]
+pub struct SubmitScoreButton;
+
+#[derive(Component)]
+pub struct EnterNickNameButton;
+
+#[derive(Component)]
+pub struct SubmitStatusText;
+
+fn nickname_ui (
+    mut commands: Commands,
+    mut status: ResMut<SubmitStatus>,
+) {
+    let button_node = Node {
+        width: px(150),
+        height: px(40),
+        margin: UiRect::all(px(10)),
+        justify_content: JustifyContent::Center,
+        align_items: AlignItems::Center,
+        border_radius: BorderRadius::all(px(8)),
+        ..default()
+    };
+    let button_text_style = (
+        TextFont {
+            font_size: FontSize::Px(13.0),
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+    );
+    commands.spawn((
+        DespawnOnExit(OverlayState::Nickname),
+        FocusPolicy::Block,
+        Node {
+            flex_direction: FlexDirection::Column,
+            width: percent(100),
+            height: percent(100),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            align_content: AlignContent::Center,
+            ..default()
+        },
+        GlobalZIndex(10),
+        BackgroundColor(TRANSPARENT_BACKGROUND),
+    )).with_children(|parent| {
+        parent.spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                align_content: AlignContent::Center,
+                align_items: AlignItems::Center,
+                padding: UiRect::all(px(5)),
+                border_radius: BorderRadius::all(px(8)),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 1.)),
+        )).with_children(|panel| {
+            panel.spawn((
+                Text::new("Your nickname"),
+                TextFont { font_size: Val::Px(24.0).into(), ..default()},
+                TextColor(TEXT_COLOR)
+            ));
+            panel.spawn((
+                NicknameInput,
+                Node {
+                    width: px(300),
+                    border: UiRect::all(px(2.)),
+                    padding: UiRect::all(px(10.)),
+                    ..default()
+                },
+                EditableText { 
+                    max_characters: Some(25),
+                    ..default()
+                },
+                EditableTextFilter::new(|c| c.is_alphanumeric() || c =='_' || c=='-'),
+                TextCursorStyle::default(),
+                TextFont::from_font_size(24.),
+                BorderColor::all(TEXT_COLOR),
+                AutoFocus,
+            ));
+            panel.spawn((
+                SubmitStatusText,
+                Node {
+                    width: px(300),
+                    ..default()
+                },
+                Text::new(""),
+                TextColor(Color::srgb(1., 0., 0.)),
+            ));
+            panel.spawn(
+                Node {
+                    width: percent(100),
+                    height: percent(100),
+                    align_items: AlignItems::Center,
+                    align_content: AlignContent::Center,
+                    justify_content: JustifyContent::SpaceAround,
+                    flex_direction: FlexDirection::Row,
+                    ..default()
+                }
+            ).with_children(|button|{
+                button.spawn((
+                    Button,
+                    SubmitScoreButton,
+                    button_node.clone(),
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButtonAction::SubmitScore,
+                    children![(Text::new("Submit"), button_text_style.clone())]
+                ));
+                button.spawn((
+                    Button,
+                    button_node,
+                    BackgroundColor(NORMAL_BUTTON),
+                    MenuButtonAction::ExitOverlay,
+                    children![(Text::new("Cancel"), button_text_style)]
+                ));
+            });
+        });
+    });
+    if *status != SubmitStatus::Submitting {
+        *status = SubmitStatus::Editing;
+    }
+
+}
+
+fn enter_submit (
+    keys: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+) {
+    if keys.just_pressed(KeyCode::Enter) {
+        commands.trigger(SubmitNickname);
     }
 }

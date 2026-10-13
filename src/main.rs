@@ -8,12 +8,16 @@ mod audio;
 mod world;
 mod pipes;
 mod player;
+mod scoreboard;
+// mod update_scoreboard;
 
 use audio::*;
 use pipes::*;
 use world::*;
 use world::menu::*;
 use player::*;
+use scoreboard::*;
+// use update_scoreboard::*;
 
 
 fn main() {
@@ -40,6 +44,7 @@ fn main() {
         .add_plugins(WorldPlugin)
         .add_plugins(PlayerPlugin)
         .add_plugins(MenuPlugin)
+        .add_plugins(ScoreboardPlugin)
         .add_plugins((
             PipePlugin,
             Material2dPlugin::<BackgroundMaterial>::default(),

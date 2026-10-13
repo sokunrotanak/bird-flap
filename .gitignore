@@ -2,6 +2,7 @@
 /dist
 /public
 /.cargo
+**/.env
 
 **/.DS_Store
 
