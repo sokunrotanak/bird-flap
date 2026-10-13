@@ -13,6 +13,11 @@ variables:
 
 pages:
   stage: deploy
+  before_script:
+    - echo "SUPABASE_URL=$(cat $SUPABASE_URL)" > .env
+    - echo "API_KEY=$(cat $API_KEY)" >> .env
+    - ls -la .env
+
   script:
     # WASM compile target for Rust.
     - rustup target add wasm32-unknown-unknown
