@@ -330,7 +330,6 @@ fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
     )
 }
 
-
 fn update_checkbox (
     mut q_checkbox: Query< 
         (Has<Checked>, &Hovered, &Children),
@@ -428,10 +427,8 @@ fn update_checkbox2 (
         })
 }
 
-
 const ELEMENT_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
 const ELEMENT_FILL: Color = Color::srgb(0.35, 0.75, 0.35);
-
 
 fn set_checkbox_style (
     hovering: bool,
@@ -704,7 +701,7 @@ fn overlay_scoreboard (
                 TextFont { font_size: Val::Px(24.0).into(), ..default() }, 
                 TextColor(TEXT_COLOR)
             ));
-            score_row(panel, "#", "Name", "Score", "Sumit Time", Color::NONE);
+            score_row(panel, "#", "Name", "Score", "Submit Time", Color::NONE);
             panel.spawn((
                 ScoreRows,
                 Node {
@@ -725,7 +722,6 @@ fn overlay_scoreboard (
 
     });
 }
-
 
 fn refresh_row (
     board: Res<ScoreboardLog>,
@@ -773,41 +769,6 @@ fn reset_submission_check (
 ) {
     submission_check.0 = false;
 }
-
-// fn nickname_input (
-//     mut events: MessageReader<KeyboardInput>,
-//     // mut form: ResMut<NicknameForm>,
-//     mut commands: Commands,
-//     interaction_query: Query<
-//         (&Interaction, &MenuButtonAction),
-//         (Changed<Interaction>, With<Button>),
-//     >,
-// ) {
-//     const MAX_NICKNAME_LEN: usize = 25;
-//     if !matches!(form.status, SubmitStatus::Editing) {return;}
-//     for ev in events.read() {
-//         if !ev.state.is_pressed() {continue;}
-//         match &ev.logical_key {
-//             Key::Enter => {commands.trigger(SubmitNickname); }
-//             Key::Backspace => {form.text.pop();}
-//             Key::Space => if form.text.len() < MAX_NICKNAME_LEN { form.text.push(' ');},
-//             Key::Character(s) => for c in s.chars() {
-//                 if (c.is_alphanumeric() || c == '_' || c == '-') && form.text.chars().count() < MAX_NICKNAME_LEN {
-//                     form.text.push(c);
-//                 }
-//             },
-//             _ => {}
-//         }
-//     }
-//     for (interaction, menu_button_action) in &interaction_query {
-//         if *interaction == Interaction::Pressed {
-//             match menu_button_action {
-//                 MenuButtonAction::SubmitScore => {commands.trigger(SubmitNickname);},
-//                 _ => {},
-//             }
-//         }
-//     }
-// }
 
 const MODE_ONESHOT: &str = "OneShot";
 const MODE_DISABLE: &str = "Disabled OneShot";
